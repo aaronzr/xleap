@@ -1,0 +1,312 @@
+# Monitor PV definitions live in app/monitor_pvs.yaml.
+
+groups:
+  # ==========================================
+  # Group: Matching
+  # ==========================================
+  - group_name: matching
+    description: quadrupole magnets used to focus the beam to match design specifications
+    threshold: 0.05
+    subgroups:
+      IN20:
+        Beam_Path: CU_SXR, CU_HXR
+        threshold: 0.002
+        pv:
+          - pv_name: QUAD:IN20:121:BCTRL
+          - pv_name: QUAD:IN20:122:BCTRL
+          - pv_name: QUAD:IN20:361:BCTRL
+          - pv_name: QUAD:IN20:371:BCTRL
+          - pv_name: QUAD:IN20:425:BCTRL
+          - pv_name: QUAD:IN20:441:BCTRL
+          - pv_name: QUAD:IN20:511:BCTRL
+          - pv_name: QUAD:IN20:525:BCTRL
+            threshold: 0.006
+
+      LI21:
+        Beam_Path: CU_SXR, CU_HXR
+        threshold: 0.0025
+        pv:
+          - pv_name: QUAD:LI21:201:BCTRL
+          - pv_name: QUAD:LI21:211:BCTRL
+          - pv_name: QUAD:LI21:271:BCTRL
+            threshold: 0.004
+          - pv_name: QUAD:LI21:278:BCTRL
+            threshold: 0.009
+
+      LI26:
+        Beam_Path: CU_SXR, CU_HXR
+        threshold: 0.018
+        pv:
+          - pv_name: QUAD:LI26:201:BCTRL
+          - pv_name: QUAD:LI26:301:BCTRL
+          - pv_name: QUAD:LI26:401:BCTRL
+          - pv_name: QUAD:LI26:501:BCTRL
+          - pv_name: QUAD:LI26:601:BCTRL
+          - pv_name: QUAD:LI26:701:BCTRL
+          - pv_name: QUAD:LI26:801:BCTRL
+            threshold: 0.025
+          - pv_name: QUAD:LI26:901:BCTRL
+
+      HTR:
+        Beam_Path: SC_SXR, SC_HXR
+        threshold: 0.08
+        pv:
+          - pv_name: QUAD:HTR:365:BCTRL
+          - pv_name: QUAD:HTR:385:BCTRL
+          - pv_name: QUAD:HTR:440:BCTRL
+          - pv_name: QUAD:HTR:460:BCTRL
+
+      COL0:
+        Beam_Path: SC_SXR, SC_HXR
+        threshold: 0.4
+        pv:
+          - pv_name: QUAD:COL0:240:BCTRL
+          - pv_name: QUAD:COL0:280:BCTRL
+          - pv_name: QUAD:COL0:320:BCTRL
+          - pv_name: QUAD:COL0:400:BCTRL
+
+      COL1:
+        Beam_Path: SC_SXR, SC_HXR
+        threshold: 0.4
+        pv:
+          - pv_name: QUAD:COL1:120:BCTRL
+          - pv_name: QUAD:COL1:260:BCTRL
+          - pv_name: QUAD:COL1:280:BCTRL
+          - pv_name: QUAD:COL1:320:BCTRL
+
+      EMIT2:
+        Beam_Path: SC_SXR, SC_HXR
+        threshold: 0.5
+        pv:
+          - pv_name: QUAD:EMIT2:150:BCTRL
+          - pv_name: QUAD:EMIT2:300:BCTRL
+          - pv_name: QUAD:EMIT2:800:BCTRL
+          - pv_name: QUAD:EMIT2:900:BCTRL
+
+      DOG:
+        Beam_Path: SC_SXR, SC_HXR
+        threshold: 0.5
+        pv:
+          - pv_name: QUAD:DOG:250:BCTRL
+          - pv_name: QUAD:DOG:280:BCTRL
+          - pv_name: QUAD:DOG:335:BCTRL
+          - pv_name: QUAD:DOG:405:BCTRL
+
+      LTUH:
+        Beam_Path: CU_HXR, SC_HXR
+        threshold: 0.12
+        pv:
+          - pv_name: QUAD:LTUH:620:BCTRL
+          - pv_name: QUAD:LTUH:640:BCTRL
+          - pv_name: QUAD:LTUH:660:BCTRL
+          - pv_name: QUAD:LTUH:680:BCTRL
+
+      LTUS:
+        Beam_Path: CU_SXR, SC_SXR
+        threshold: 0.12
+        pv:
+          - pv_name: QUAD:LTUS:620:BCTRL
+          - pv_name: QUAD:LTUS:640:BCTRL
+          - pv_name: QUAD:LTUS:660:BCTRL
+          - pv_name: QUAD:LTUS:680:BCTRL
+
+  # ==========================================
+  # Group: Dispersion Quads & R56
+  # ==========================================
+  - group_name: dispersion_quads
+    subgroups:
+      CQ_LI21_LI24:
+        Beam_Path: CU_SXR, CU_HXR
+        pv:
+          - pv_name: QUAD:LI21:221:BCTRL
+            threshold: 0.024
+          - pv_name: QUAD:LI21:251:BCTRL
+            threshold: 0.024
+          - pv_name: QUAD:LI24:740:BCTRL
+            threshold: 0.042
+          - pv_name: QUAD:LI24:860:BCTRL
+            threshold: 0.042
+
+      CQ_BC1B_BC2B:
+        Beam_Path: SC_SXR, SC_HXR
+        pv:
+          - pv_name: QUAD:BC1B:125:BCTRL
+            threshold: 0.04
+          - pv_name: QUAD:BC1B:750:BCTRL
+            threshold: 0.04
+          - pv_name: QUAD:BC2B:250:BCTRL
+            threshold: 0.08
+          - pv_name: QUAD:BC2B:850:BCTRL
+            threshold: 0.08
+
+      HXR_Disp:
+        Beam_Path: CU_SXR, CU_HXR, SC_SXR, SC_HXR
+        threshold: 0.5
+        pv:
+          - pv_name: QUAD:LTUH:440:BCTRL
+            threshold: 0.5
+          - pv_name: QUAD:LTUH:460:BCTRL
+            threshold: 0.5
+
+      SXR_Disp:
+        Beam_Path: CU_SXR, SC_SXR
+        threshold: 0.05
+        pv:
+          - pv_name: QUAD:CLTS:590:BCTRL
+            threshold: 0.05
+          - pv_name: QUAD:CLTS:620:BCTRL
+            threshold: 0.05
+          - pv_name: QUAD:LTUS:180:BCTRL
+            threshold: 0.05
+          - pv_name: QUAD:LTUS:235:BCTRL
+            threshold: 0.05
+
+      R56_Knobs:
+        Beam_Path: CU_HXR, SC_HXR
+        pv:
+          - pv_name: QUAD:LTUH:250:BCTRL
+            threshold: 0.25
+          # - pv_name: QUAD:LTUH:250:BCTRL # Knob entry 2
+          #   threshold: 0.05
+          # - pv_name: QUAD:LTUH:250:BCTRL # Knob entry 3
+          #   threshold: -0.05
+
+      XCOR_String:
+        Beam_Path: CU_SXR, SC_SXR
+        description: Moving on a string; using negative PVs only
+        pv:
+          - pv_name: "XCOR:LTUS:148:BCTRL"
+            threshold: 4.08
+          # - pv_name: "XCOR:LTUS:228"
+          #   threshold: -0.06
+          # - pv_name: "XCOR:LTUS:296"
+          #   threshold: 8.18
+          - pv_name: "XCOR:LTUS:368:BCTRL"
+            threshold: 0.06
+          # - pv_name: "XCOR:LTUS:448"
+          #   threshold: 12.26
+
+      SPS_String:
+        Beam_Path: SC_SXR
+        description: R56 string; keeping negative PVs active
+        pv:
+          # - pv_name: "QUAD:SPS:570:BCTRL"
+          #   threshold: 0.0501
+          # - pv_name: "QUAD:SPS:580:BCTRL"
+          #   threshold: 0.0062
+          - pv_name: "QUAD:SPS:640:BCTRL"
+            threshold: 0.0542
+          # - pv_name: "QUAD:SPS:650:BCTRL"
+          #   threshold: 0.0447
+          - pv_name: "QUAD:SPS:710:BCTRL"
+            threshold: 0.1360
+
+  # ==========================================
+  # Group: Longitudinal RF
+  # ==========================================
+  - group_name: rf
+    subgroups:
+      rf_6x6:
+        Beam_Path: CU_SXR, CU_HXR
+        pv:
+          - pv_name: FBCK:FB04:LG01:S3DES           # BC1 Pk Curr
+            threshold: 20
+          - pv_name: FBCK:FB04:LG01:S5DES           # BC2 Pk Curr
+            threshold: 100
+          - pv_name: FBCK:FB04:LG01:DL2VERNIER      # DL2 Vernier
+            threshold: 1
+          - pv_name: SIOC:SYS0:ML04:AO403           # BC1 Pk Curr (Alt Beam)
+            threshold: 20
+          - pv_name: SIOC:SYS0:ML04:AO401           # BC2 Pk Curr (Alt Beam)
+            threshold: 100
+          - pv_name: FBCK:FB04:LG01:DL2VERNIER_SXR  # DL2 Vernier (Alt Beam)
+            threshold: 20
+          - pv_name: ACCL:LI21:180:L1X_PDES         # L1X phase
+            threshold: 5.0
+          - pv_name: ACCL:LI21:180:L1X_ADES         # L1X amp
+            threshold: 0.5
+      rfal:
+        Beam_Path: SC_SXR, SC_HXR
+        pv:
+          - pv_name: PHYS:SYS0:1:SCLFB_LH_BL_TARGET  # HTRB BLEN
+            threshold: 50.0
+          - pv_name: PHYS:SYS0:1:SCLFB_L1B_BL_TARGET # BC1B BLEN
+            threshold: 100.0
+          - pv_name: PHYS:SYS0:1:SCLFB_L2B_BL_TARGET # BC2B BLEN
+            threshold: 100.0
+          # [NOT ARCHIVED]
+          # - pv_name: PHYS:SYS0:1:SCLFB_DL_VERNIER    # L3B energy
+            # threshold: 1.0
+          - pv_name: ACCL:L1B:H100:AL:CACT           # HL chirp
+            threshold: 0.5
+
+  # ==========================================
+  # Group: Laser
+  # ==========================================
+  - group_name: laser
+    subgroups:
+      Charge:
+        pv:
+          - pv_name: TPG:SYS0:1:BUNCH_CHARGE_RBV    # SC charge setpoint
+            threshold: 5.0
+            Beam_Path: SC_SXR, SC_HXR
+          - pv_name: FBCK:BCI0:1:CHRGSP             # NC charge setpoint
+            threshold: 0.005
+            Beam_Path: CU_SXR, CU_HXR
+      Position:
+        Beam_Path: CU_SXR, CU_HXR, SC_SXR, SC_HXR
+        threshold: 0.05
+        pv:
+          - pv_name: BPMS:GUNB:314:FW:X_SLOW
+            Beam_Path: SC_SXR, SC_HXR
+          - pv_name: BPMS:GUNB:314:FW:Y_SLOW
+            Beam_Path: SC_SXR, SC_HXR
+          - pv_name: BPMS:IN20:221:XCU1H
+            Beam_Path: CU_SXR, CU_HXR
+          - pv_name: BPMS:IN20:221:YCU1H
+            Beam_Path: CU_SXR, CU_HXR
+      XLEAP:
+        pv:
+          - pv_name: PSDL:LR20:117:TACT             # NC pulse stacker
+            threshold: 0.4
+            Beam_Path: CU_SXR, CU_HXR
+          - pv_name: WPLT:LR00:200:MOTR_ANGLE       # XLEAP laser waveplate
+            threshold: 0.5
+            Beam_Path: SC_SXR, SC_HXR
+          - pv_name: OSC:LR00:100:PLL:SCAN_OFFSET   # XLEAP laser delay
+            threshold: 1.0
+            Beam_Path: SC_SXR, SC_HXR
+
+  # ==========================================
+  # Group: Undulators
+  # ==========================================
+  - group_name: undulator
+    subgroups:
+      HXR_redline:
+        Beam_Path: CU_SXR, CU_HXR
+        pv:
+          - pv_name: SIOC:SYS0:ML04:AO310           # HXR Quad taper Start
+            threshold: 1.0
+          - pv_name: SIOC:SYS0:ML04:AO311           # HXR Quad taper end
+            threshold: 1.0
+          - pv_name: SIOC:SYS0:ML04:AO312           # HXR Amplitude
+            threshold: 5.0
+      SXR_redline:
+        Beam_Path: SC_SXR, SC_HXR
+        pv:
+          - pv_name: SIOC:SYS0:ML04:AO335           # SXR Quad taper Start
+            threshold: 1.0
+          - pv_name: SIOC:SYS0:ML04:AO336           # SXR Quad taper end
+            threshold: 1.0
+          - pv_name: SIOC:SYS0:ML04:AO337           # SXR Amplitude
+            threshold: 5.0
+
+  # ==========================================
+  # Group: Other
+  # ==========================================
+  - group_name: other
+    subgroups:
+      SOL:
+        Beam_Path: CU_SXR, CU_HXR,
+        pv:
+          - pv_name: SOLN:IN20:121:BCTRL
