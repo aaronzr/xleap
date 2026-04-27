@@ -215,9 +215,9 @@ groups:
             threshold: 100
           - pv_name: FBCK:FB04:LG01:DL2VERNIER      # DL2 Vernier
             threshold: 1
-          - pv_name: SIOC:SYS0:ML04:AO403           # BC1 Pk Curr (Alt Beam)
-            threshold: 20
-          - pv_name: SIOC:SYS0:ML04:AO401           # BC2 Pk Curr (Alt Beam)
+          # - pv_name: SIOC:SYS0:ML04:AO403           # BC1 Pk Curr (Alt Beam)
+          #   threshold: 20
+          # - pv_name: SIOC:SYS0:ML04:AO401           # BC2 Pk Curr (Alt Beam)
             threshold: 100
           - pv_name: FBCK:FB04:LG01:DL2VERNIER_SXR  # DL2 Vernier (Alt Beam)
             threshold: 20
@@ -280,26 +280,26 @@ groups:
   # ==========================================
   # Group: Undulators
   # ==========================================
-  - group_name: undulator
-    subgroups:
-      HXR_redline:
-        Beam_Path: CU_SXR, CU_HXR
-        pv:
-          - pv_name: SIOC:SYS0:ML04:AO310           # HXR Quad taper Start
-            threshold: 1.0
-          - pv_name: SIOC:SYS0:ML04:AO311           # HXR Quad taper end
-            threshold: 1.0
-          - pv_name: SIOC:SYS0:ML04:AO312           # HXR Amplitude
-            threshold: 5.0
-      SXR_redline:
-        Beam_Path: SC_SXR, SC_HXR
-        pv:
-          - pv_name: SIOC:SYS0:ML04:AO335           # SXR Quad taper Start
-            threshold: 1.0
-          - pv_name: SIOC:SYS0:ML04:AO336           # SXR Quad taper end
-            threshold: 1.0
-          - pv_name: SIOC:SYS0:ML04:AO337           # SXR Amplitude
-            threshold: 5.0
+  # - group_name: undulator
+  #   subgroups:
+  #     HXR_redline:
+  #       Beam_Path: CU_SXR, CU_HXR
+  #       pv:
+  #         - pv_name: SIOC:SYS0:ML04:AO310           # HXR Quad taper Start
+  #           threshold: 1.0
+  #         - pv_name: SIOC:SYS0:ML04:AO311           # HXR Quad taper end
+  #           threshold: 1.0
+  #         - pv_name: SIOC:SYS0:ML04:AO312           # HXR Amplitude
+  #           threshold: 5.0
+  #     SXR_redline:
+  #       Beam_Path: SC_SXR, SC_HXR
+  #       pv:
+  #         - pv_name: SIOC:SYS0:ML04:AO335           # SXR Quad taper Start
+  #           threshold: 1.0
+  #         - pv_name: SIOC:SYS0:ML04:AO336           # SXR Quad taper end
+  #           threshold: 1.0
+  #         - pv_name: SIOC:SYS0:ML04:AO337           # SXR Amplitude
+  #           threshold: 5.0
 
   # ==========================================
   # Group: Other
