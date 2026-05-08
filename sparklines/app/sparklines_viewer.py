@@ -796,7 +796,6 @@ class HierarchySparklineViewer:
             self.click_cid = self.fig.canvas.mpl_connect(
                 "button_press_event", self._on_click
             )
-            self.key_cid = self.fig.canvas.mpl_connect("key_press_event", self._on_key)
 
         if self.show_help:
             self.fig.subplots_adjust(top=0.84)
@@ -1117,18 +1116,6 @@ class HierarchySparklineViewer:
             return
 
         self._navigate_to_item(self.label_targets.get(event.artist))
-
-    def _on_key(self, event):
-        if event.key in ("backspace", "left"):
-            self.back()
-        elif event.key == "r":
-            self._reset_original_view()
-        elif event.key == "home":
-            self._trigger_toolbar_home()
-        elif event.key == "h":
-            self.home()
-        elif event.key in ("?", "shift+/"):
-            self.toggle_help()
 
     def back(self):
         if self.focused_monitor_label is not None:

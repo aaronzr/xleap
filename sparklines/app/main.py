@@ -9,6 +9,7 @@ import tempfile
 import traceback
 from pathlib import Path
 
+import matplotlib as mpl
 from matplotlib.backends.backend_qt5agg import (
     FigureCanvasQTAgg,
     NavigationToolbar2QT as NavigationToolbar,
@@ -17,9 +18,11 @@ from matplotlib.figure import Figure
 from PyQt5 import QtCore, QtWidgets
 
 try:
+    from .hotkeys import SparklineHotkeyController
     from .sparklines_hierarchy import build_default_composite_hierarchy
     from .sparklines_viewer import HierarchySparklineViewer
 except ImportError:  # pragma: no cover - script fallback
+    from hotkeys import SparklineHotkeyController
     from sparklines_hierarchy import build_default_composite_hierarchy
     from sparklines_viewer import HierarchySparklineViewer
 
@@ -30,6 +33,49 @@ DEFAULT_DRAW_REPORT_PATH = Path(__file__).with_name("sparklines_draw_report.txt"
 DEFAULT_WINDOW_HOURS = 8.0
 DEFAULT_ELOGBOOK = "lcls2"
 DEFAULT_ELOG_TITLE = "MEME Sparklines"
+
+
+def toolbar_shortcuts() -> tuple[Path, list[tuple[str, str]]]:
+    """Return toolbar shortcuts from the active matplotlibrc file."""
+    rc_path = Path(mpl.matplotlib_fname())
+    shortcut_map = {
+        "home": "Reset original view",
+        "back": "Back to previous view",
+        "forward": "Forward to next view",
+        "pan": "Pan axes",
+        "zoom": "Zoom to rectangle",
+    }
+    resolved = {key: "Unavailable" for key in shortcut_map}
+    try:
+        for raw_line in rc_path.read_text().splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            if line.startswith("#"):
+                line = line[1:].strip()
+            line = line.split("#", 1)[0].rstrip()
+            if not line:
+                continue
+            if not line.startswith("keymap.") or ":" not in line:
+                continue
+            name, value = line.split(":", 1)
+            key = name.removeprefix("keymap.").strip()
+            if key in resolved:
+                resolved[key] = value.strip() or "Unavailable"
+    except OSError:
+        pass
+    return rc_path, [(label, resolved[key]) for key, label in shortcut_map.items()]
+
+
+def viewer_shortcuts() -> list[tuple[str, str]]:
+    """Return the static viewer shortcuts shown by the Matplotlib help overlay."""
+    return [
+        ("Back one level", "backspace, left"),
+        ("Go home", "h"),
+        ("Toggle raw samples", "Show data points checkbox"),
+        ("Filter Beam_Path", "SXR/HXR and Cu/SC checkboxes"),
+        ("Toggle help", "?, shift+/"),
+    ]
 
 
 def parse_datetime_text(value: str) -> dt.datetime:
@@ -106,6 +152,96 @@ class HierarchyLoadWorker(QtCore.QObject):
             self.finished.emit()
 
 
+class SparklineHelpDialog(QtWidgets.QDialog):
+    """Qt help dialog mirroring the Matplotlib keyboard help overlay."""
+
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("MEME Sparklines Help")
+        self.resize(720, 420)
+
+        layout = QtWidgets.QVBoxLayout(self)
+
+        title = QtWidgets.QLabel("Keyboard Shortcuts")
+        title.setStyleSheet("QLabel { font-size: 18px; font-weight: 600; }")
+        title.setAlignment(QtCore.Qt.AlignCenter)
+        layout.addWidget(title)
+
+        subtitle = QtWidgets.QLabel(
+            "Built-in toolbar shortcuts are read from the active matplotlibrc file."
+        )
+        subtitle.setWordWrap(True)
+        subtitle.setAlignment(QtCore.Qt.AlignCenter)
+        layout.addWidget(subtitle)
+
+        toolbar_group = QtWidgets.QGroupBox("Toolbar")
+        toolbar_layout = QtWidgets.QVBoxLayout(toolbar_group)
+        self.toolbar_table = self._build_shortcut_table()
+        toolbar_layout.addWidget(self.toolbar_table)
+        layout.addWidget(toolbar_group, 1)
+
+        viewer_group = QtWidgets.QGroupBox("Viewer")
+        viewer_layout = QtWidgets.QVBoxLayout(viewer_group)
+        self.viewer_table = self._build_shortcut_table()
+        viewer_layout.addWidget(self.viewer_table)
+        layout.addWidget(viewer_group, 1)
+
+        self.source_label = QtWidgets.QLabel("")
+        self.source_label.setStyleSheet("QLabel { color: #666; }")
+        self.source_label.setAlignment(QtCore.Qt.AlignCenter)
+        layout.addWidget(self.source_label)
+
+        close_button = QtWidgets.QPushButton("Close")
+        close_button.clicked.connect(self.close)
+        layout.addWidget(close_button, alignment=QtCore.Qt.AlignRight)
+
+        self.refresh_contents()
+
+    def _build_shortcut_table(self) -> QtWidgets.QTableWidget:
+        table = QtWidgets.QTableWidget(0, 2, self)
+        table.setHorizontalHeaderLabels(["Action", "Shortcut"])
+        table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        table.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
+        table.setFocusPolicy(QtCore.Qt.NoFocus)
+        table.setAlternatingRowColors(False)
+        table.setShowGrid(False)
+        table.setWordWrap(True)
+        table.verticalHeader().setVisible(False)
+        table.horizontalHeader().setStretchLastSection(True)
+        table.horizontalHeader().setSectionResizeMode(
+            0, QtWidgets.QHeaderView.ResizeToContents
+        )
+        table.horizontalHeader().setSectionResizeMode(
+            1, QtWidgets.QHeaderView.Stretch
+        )
+        table.setStyleSheet(
+            "QTableWidget { background: transparent; border: none; }"
+            "QHeaderView::section { background: transparent; border: none; "
+            "font-weight: 600; padding: 2px 6px; }"
+            "QTableWidget::item { padding: 4px 6px; }"
+        )
+        return table
+
+    def _populate_shortcut_table(
+        self, table: QtWidgets.QTableWidget, shortcuts: list[tuple[str, str]]
+    ) -> None:
+        table.setRowCount(len(shortcuts))
+        for row, (action, shortcut) in enumerate(shortcuts):
+            action_item = QtWidgets.QTableWidgetItem(action)
+            shortcut_item = QtWidgets.QTableWidgetItem(shortcut)
+            action_item.setFlags(QtCore.Qt.ItemIsEnabled)
+            shortcut_item.setFlags(QtCore.Qt.ItemIsEnabled)
+            table.setItem(row, 0, action_item)
+            table.setItem(row, 1, shortcut_item)
+        table.resizeRowsToContents()
+
+    def refresh_contents(self) -> None:
+        rc_path, toolbar_items = toolbar_shortcuts()
+        self._populate_shortcut_table(self.toolbar_table, toolbar_items)
+        self._populate_shortcut_table(self.viewer_table, viewer_shortcuts())
+        self.source_label.setText(f"Source: {rc_path}")
+
+
 class SparklineMainWindow(QtWidgets.QMainWindow):
     """Qt shell around the Matplotlib-based hierarchy viewer."""
 
@@ -130,8 +266,11 @@ class SparklineMainWindow(QtWidgets.QMainWindow):
         self._start_time = start_time
         self._end_time = end_time
         self.viewer = None
+        self._help_dialog = None
+        self._hotkeys = None
 
         self._build_ui()
+        self._hotkeys = SparklineHotkeyController(self)
         self.start_edit.setText(format_datetime_text(start_time))
         self.end_edit.setText(format_datetime_text(end_time))
 
@@ -146,6 +285,9 @@ class SparklineMainWindow(QtWidgets.QMainWindow):
 
         top_bar = QtWidgets.QHBoxLayout()
         top_bar.setSpacing(8)
+        self.help_button = QtWidgets.QPushButton("Help")
+        self.help_button.clicked.connect(self.show_help_dialog)
+        top_bar.addWidget(self.help_button)
         top_bar.addStretch(1)
         self.elog_button = QtWidgets.QPushButton("Upload to LCLS-II Elog")
         self.elog_button.setStyleSheet(
@@ -180,9 +322,23 @@ class SparklineMainWindow(QtWidgets.QMainWindow):
         self.canvas = FigureCanvasQTAgg(Figure(figsize=(12, 8), dpi=100))
         self.toolbar = NavigationToolbar(self.canvas, self)
         self.canvas.toolbar = self.toolbar
+        self.toolbar.setOrientation(QtCore.Qt.Vertical)
+        self.toolbar.setMovable(False)
+        self.toolbar.setFloatable(False)
+        self.toolbar.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
+        self.toolbar.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Expanding)
+        self.toolbar.locLabel.setVisible(False)
+        self.toolbar.locLabel.setMinimumWidth(0)
+        self.toolbar.locLabel.setMaximumWidth(0)
+        self.toolbar.setFixedWidth(self.toolbar.sizeHint().width())
 
-        layout.addWidget(self.toolbar)
-        layout.addWidget(self.canvas, 1)
+        canvas_row = QtWidgets.QHBoxLayout()
+        canvas_row.setContentsMargins(0, 0, 0, 0)
+        canvas_row.setSpacing(6)
+        canvas_row.addWidget(self.toolbar)
+        canvas_row.addWidget(self.canvas, 1)
+
+        layout.addLayout(canvas_row, 1)
         self.setCentralWidget(root)
 
         self.reload_button.clicked.connect(self.reload_requested_range)
@@ -354,6 +510,15 @@ class SparklineMainWindow(QtWidgets.QMainWindow):
             if temp_path is not None:
                 temp_path.unlink(missing_ok=True)
             self._refresh_elog_button_state()
+
+    @Slot()
+    def show_help_dialog(self) -> None:
+        if self._help_dialog is None:
+            self._help_dialog = SparklineHelpDialog(self)
+        self._help_dialog.refresh_contents()
+        self._help_dialog.show()
+        self._help_dialog.raise_()
+        self._help_dialog.activateWindow()
 
     def closeEvent(self, event) -> None:  # pragma: no cover - GUI lifecycle
         if self._loader_thread is not None:

@@ -218,7 +218,7 @@ groups:
           # - pv_name: SIOC:SYS0:ML04:AO403           # BC1 Pk Curr (Alt Beam)
           #   threshold: 20
           # - pv_name: SIOC:SYS0:ML04:AO401           # BC2 Pk Curr (Alt Beam)
-            threshold: 100
+          #   threshold: 100
           - pv_name: FBCK:FB04:LG01:DL2VERNIER_SXR  # DL2 Vernier (Alt Beam)
             threshold: 20
           - pv_name: ACCL:LI21:180:L1X_PDES         # L1X phase
