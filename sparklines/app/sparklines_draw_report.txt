@@ -891,3 +891,43 @@
   composite | matching | draw=0.0059s | points=137/137
   composite | other | draw=0.0041s | points=1/1
   composite | rf | draw=0.0042s | points=4/4
+2026-05-08T00:13:53 | path=All PV Groups | total=6.3783s
+  monitor | GMD | draw=0.9942s | points=137/641319
+  monitor | XGMD | draw=0.1027s | points=136/15241
+  monitor | GDET 241 | draw=0.1132s | points=987/29314
+  monitor | GDET 361 | draw=0.1072s | points=987/29314
+  composite | dispersion_quads | draw=0.0124s | points=433/433
+  composite | laser | draw=0.1723s | points=77485/77485
+  composite | matching | draw=0.0169s | points=2909/2909
+  composite | other | draw=0.0061s | points=36/36
+  composite | rf | draw=0.0052s | points=25/25
+2026-05-08T00:13:55 | path=All PV Groups | total=2.1018s
+  monitor | GMD | draw=0.9782s | points=137/641319
+  monitor | XGMD | draw=0.1056s | points=136/15241
+  monitor | GDET 241 | draw=0.1149s | points=987/29314
+  monitor | GDET 361 | draw=0.1156s | points=987/29314
+  composite | dispersion_quads | draw=0.0088s | points=433/433
+  composite | laser | draw=0.1749s | points=77485/77485
+  composite | matching | draw=0.0164s | points=2909/2909
+  composite | other | draw=0.0068s | points=36/36
+  composite | rf | draw=0.0056s | points=25/25
+2026-05-08T00:14:26 | path=All PV Groups | total=6.2930s
+  monitor | GMD | draw=0.9480s | points=137/641328
+  monitor | XGMD | draw=0.1070s | points=136/15220
+  monitor | GDET 241 | draw=0.0983s | points=972/15313
+  monitor | GDET 361 | draw=0.1044s | points=972/15313
+  composite | dispersion_quads | draw=0.0081s | points=187/187
+  composite | laser | draw=0.1361s | points=56971/56971
+  composite | matching | draw=0.0140s | points=2561/2561
+  composite | other | draw=0.0083s | points=34/34
+  composite | rf | draw=0.0082s | points=8/8
+2026-05-08T00:14:29 | path=All PV Groups | total=2.0925s
+  monitor | GMD | draw=1.0344s | points=137/641328
+  monitor | XGMD | draw=0.1088s | points=136/15220
+  monitor | GDET 241 | draw=0.1115s | points=972/15313
+  monitor | GDET 361 | draw=0.0997s | points=972/15313
+  composite | dispersion_quads | draw=0.0062s | points=187/187
+  composite | laser | draw=0.1337s | points=56971/56971
+  composite | matching | draw=0.0141s | points=2561/2561
+  composite | other | draw=0.0056s | points=34/34
+  composite | rf | draw=0.0050s | points=8/8

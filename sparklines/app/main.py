@@ -32,6 +32,7 @@ Slot = getattr(QtCore, "Slot", QtCore.pyqtSlot)
 DEFAULT_DRAW_REPORT_PATH = Path(__file__).with_name("sparklines_draw_report.txt")
 DEFAULT_WINDOW_HOURS = 8.0
 DEFAULT_ELOGBOOK = "lcls2"
+DEFAULT_LEGACY_ELOGBOOK = "lcls"
 DEFAULT_ELOG_TITLE = "MEME Sparklines"
 
 
@@ -289,11 +290,22 @@ class SparklineMainWindow(QtWidgets.QMainWindow):
         self.help_button.clicked.connect(self.show_help_dialog)
         top_bar.addWidget(self.help_button)
         top_bar.addStretch(1)
+        self.legacy_elog_button = QtWidgets.QPushButton("Upload to LCLS Elog")
+        self.legacy_elog_button.setStyleSheet(
+            "QPushButton { background-color: rgb(85, 255, 255); font-weight: 600; }"
+        )
+        self.legacy_elog_button.clicked.connect(
+            lambda: self.upload_canvas_to_elog(DEFAULT_LEGACY_ELOGBOOK)
+        )
+        top_bar.addWidget(self.legacy_elog_button)
+
         self.elog_button = QtWidgets.QPushButton("Upload to LCLS-II Elog")
         self.elog_button.setStyleSheet(
             "QPushButton { background-color: rgb(85, 255, 255); font-weight: 600; }"
         )
-        self.elog_button.clicked.connect(self.upload_canvas_to_elog)
+        self.elog_button.clicked.connect(
+            lambda: self.upload_canvas_to_elog(DEFAULT_ELOGBOOK)
+        )
         top_bar.addWidget(self.elog_button)
 
         controls = QtWidgets.QHBoxLayout()
@@ -356,6 +368,7 @@ class SparklineMainWindow(QtWidgets.QMainWindow):
         if busy is None:
             busy = bool(self._loader_thread is not None and self._loader_thread.isRunning())
         has_figure = self.viewer is not None and self._loaded_hierarchy is not None
+        self.legacy_elog_button.setEnabled(has_figure and not busy)
         self.elog_button.setEnabled(has_figure and not busy)
 
     def _set_status(self, text: str, *, error: bool = False) -> None:
@@ -470,7 +483,7 @@ class SparklineMainWindow(QtWidgets.QMainWindow):
         self.canvas.draw_idle()
 
     @Slot()
-    def upload_canvas_to_elog(self) -> None:
+    def upload_canvas_to_elog(self, elogbook: str = DEFAULT_ELOGBOOK) -> None:
         if self.viewer is None or self._loaded_hierarchy is None:
             self._set_status("Load hierarchy data before uploading to the elog.", error=True)
             return
@@ -484,8 +497,10 @@ class SparklineMainWindow(QtWidgets.QMainWindow):
             )
             return
 
+        self.legacy_elog_button.setEnabled(False)
         self.elog_button.setEnabled(False)
-        self._set_status("Uploading current canvas to the LCLS-II elog...")
+        elog_label = "LCLS-II" if elogbook == DEFAULT_ELOGBOOK else "LCLS"
+        self._set_status(f"Uploading current canvas to the {elog_label} elog...")
 
         temp_path = None
         try:
@@ -497,7 +512,7 @@ class SparklineMainWindow(QtWidgets.QMainWindow):
                 temp_path = Path(handle.name)
             self.canvas.figure.savefig(temp_path)
             physicselog.submit_entry(
-                DEFAULT_ELOGBOOK,
+                elogbook,
                 "ops",
                 DEFAULT_ELOG_TITLE,
                 attachment=str(temp_path),
@@ -505,7 +520,7 @@ class SparklineMainWindow(QtWidgets.QMainWindow):
         except Exception as exc:
             self._set_status(f"Failed to upload canvas to the elog: {exc}", error=True)
         else:
-            self._set_status("Uploaded current canvas to the LCLS-II elog.")
+            self._set_status(f"Uploaded current canvas to the {elog_label} elog.")
         finally:
             if temp_path is not None:
                 temp_path.unlink(missing_ok=True)
