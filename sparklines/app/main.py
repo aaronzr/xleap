@@ -69,13 +69,12 @@ def toolbar_shortcuts() -> tuple[Path, list[tuple[str, str]]]:
 
 
 def viewer_shortcuts() -> list[tuple[str, str]]:
-    """Return the static viewer shortcuts shown by the Matplotlib help overlay."""
+    """Return the static viewer shortcuts shown by the Qt help dialog."""
     return [
         ("Back one level", "backspace, left"),
         ("Go home", "h"),
         ("Toggle raw samples", "Show data points checkbox"),
         ("Filter Beam_Path", "SXR/HXR and Cu/SC checkboxes"),
-        ("Toggle help", "?, shift+/"),
     ]
 
 
@@ -154,7 +153,7 @@ class HierarchyLoadWorker(QtCore.QObject):
 
 
 class SparklineHelpDialog(QtWidgets.QDialog):
-    """Qt help dialog mirroring the Matplotlib keyboard help overlay."""
+    """Qt help dialog for sparkline keyboard shortcuts."""
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -266,6 +265,7 @@ class SparklineMainWindow(QtWidgets.QMainWindow):
         self._loaded_hierarchy = None
         self._start_time = start_time
         self._end_time = end_time
+        self._pending_navigation_state = None
         self.viewer = None
         self._help_dialog = None
         self._hotkeys = None
@@ -393,13 +393,23 @@ class SparklineMainWindow(QtWidgets.QMainWindow):
 
         self._start_time = start_time
         self._end_time = end_time
-        self._start_load(start_time, end_time)
+        navigation_state = (
+            None if self.viewer is None else self.viewer.export_navigation_state()
+        )
+        self._start_load(start_time, end_time, navigation_state=navigation_state)
 
-    def _start_load(self, start_time: dt.datetime, end_time: dt.datetime) -> None:
+    def _start_load(
+        self,
+        start_time: dt.datetime,
+        end_time: dt.datetime,
+        *,
+        navigation_state: dict | None = None,
+    ) -> None:
         if self._loader_thread is not None and self._loader_thread.isRunning():
             self._set_status("A load is already in progress.", error=True)
             return
 
+        self._pending_navigation_state = navigation_state
         self._set_busy(True)
         self._set_status(
             f"Loading archive data for {format_datetime_text(start_time)} to "
@@ -448,6 +458,8 @@ class SparklineMainWindow(QtWidgets.QMainWindow):
         self._loaded_hierarchy = hierarchy
         self._start_time = start_time
         self._end_time = end_time
+        navigation_state = getattr(self, "_pending_navigation_state", None)
+        self._pending_navigation_state = None
 
         self.viewer = HierarchySparklineViewer(
             hierarchy,
@@ -456,6 +468,7 @@ class SparklineMainWindow(QtWidgets.QMainWindow):
             draw_report_path=DEFAULT_DRAW_REPORT_PATH,
             figure=self.canvas.figure,
         )
+        self.viewer.restore_navigation_state(navigation_state)
         self.viewer.draw()
         self.canvas.draw()
 

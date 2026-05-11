@@ -7,13 +7,12 @@ import itertools
 import time
 from pathlib import Path
 
-import matplotlib as mpl
 import matplotlib.colors as mcolors
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import FuncFormatter
-from matplotlib.widgets import Button, CheckButtons
+from matplotlib.widgets import CheckButtons
 
 try:
     from .sparklines_hierarchy import _extract_time_and_values, _series_varies_in_window
@@ -52,6 +51,7 @@ class HierarchySparklineViewer:
         self.pick_cid = None
         self.click_cid = None
         self.key_cid = None
+        self.resize_cid = None
         self.label_targets = {}
         self.axis_targets = {}
         self.breadcrumb_targets = {}
@@ -60,7 +60,6 @@ class HierarchySparklineViewer:
         self.filter_hxr = True
         self.filter_cu = True
         self.filter_sc = True
-        self.show_help = False
         self.start_time = start_time
         self.end_time = end_time
         self.initial_xlim = tuple(mdates.date2num(value) for value in (start_time, end_time))
@@ -68,7 +67,6 @@ class HierarchySparklineViewer:
         self._tracking_limits_enabled = False
         self._pending_filter_ylims = None
         self.focused_monitor_label = None
-        self.help_button = None
         self.show_points_checkbox = None
         self.beamline_filter_checkbox = None
         self.accelerator_filter_checkbox = None
@@ -78,7 +76,11 @@ class HierarchySparklineViewer:
         )
         self._monitor_band_cache = {}
         self._monitor_render_cache = {}
-        self._deferred_draw_timer = None
+        self._plot_axes_cache = []
+        self._header_axes = []
+        self._figure_text_artists = []
+        self._controls_canvas_size = None
+        self._handling_resize = False
 
     def _normalize_beam_paths(self, beam_paths) -> tuple[str, ...]:
         if beam_paths is None:
@@ -343,6 +345,60 @@ class HierarchySparklineViewer:
         }
         return [item] if self._beam_path_matches_filters(item.get("beam_paths")) else []
 
+    def export_navigation_state(self) -> dict[str, object]:
+        return {
+            "path": list(self.path),
+            "focused_monitor_label": self.focused_monitor_label,
+            "show_data_points": self.show_data_points,
+            "filter_sxr": self.filter_sxr,
+            "filter_hxr": self.filter_hxr,
+            "filter_cu": self.filter_cu,
+            "filter_sc": self.filter_sc,
+        }
+
+    def _normalized_path_for_restore(self, path) -> list[str]:
+        candidate = list(path or [])
+        groups = self.hierarchy.get("groups", {})
+
+        if len(candidate) >= 1 and candidate[0] not in groups:
+            return []
+
+        if len(candidate) >= 2:
+            subgroups = groups.get(candidate[0], {}).get("subgroups", {})
+            if candidate[1] not in subgroups:
+                return candidate[:1]
+
+        if len(candidate) >= 3:
+            pv_data = (
+                groups.get(candidate[0], {})
+                .get("subgroups", {})
+                .get(candidate[1], {})
+                .get("pv_data", [])
+            )
+            pv_names = {pv.get("name") for pv in pv_data}
+            if candidate[2] not in pv_names:
+                return candidate[:2]
+
+        return candidate[:3]
+
+    def restore_navigation_state(self, state: dict[str, object] | None) -> None:
+        state = state or {}
+        self.show_data_points = bool(state.get("show_data_points", self.show_data_points))
+        self.filter_sxr = bool(state.get("filter_sxr", self.filter_sxr))
+        self.filter_hxr = bool(state.get("filter_hxr", self.filter_hxr))
+        self.filter_cu = bool(state.get("filter_cu", self.filter_cu))
+        self.filter_sc = bool(state.get("filter_sc", self.filter_sc))
+        monitor_label = state.get("focused_monitor_label")
+        monitor_labels = set(self.hierarchy.get("monitor_pvs", {}).keys())
+        self.focused_monitor_label = (
+            str(monitor_label) if monitor_label in monitor_labels else None
+        )
+        if self.focused_monitor_label is not None:
+            self.path = []
+            return
+
+        self.path = self._normalized_path_for_restore(state.get("path"))
+
     def _title(self):
         if len(self.path) == 0:
             return "All PV Groups"
@@ -406,6 +462,7 @@ class HierarchySparklineViewer:
 
         title_ax = self.fig.add_axes([0.08, 0.93, 0.84, 0.05])
         title_ax.set_axis_off()
+        self._header_axes.append(title_ax)
 
         renderer = self.fig.canvas.get_renderer()
         if renderer is None:
@@ -427,8 +484,9 @@ class HierarchySparklineViewer:
         ]
         self.fig.canvas.draw()
         renderer = self.fig.canvas.get_renderer()
+        title_width = max(title_ax.get_window_extent(renderer=renderer).width, 1.0)
         widths = [
-            probe.get_window_extent(renderer=renderer).width / title_ax.bbox.width
+            probe.get_window_extent(renderer=renderer).width / title_width
             for probe in probes
         ]
         for probe in probes:
@@ -465,90 +523,8 @@ class HierarchySparklineViewer:
         mode = str(getattr(toolbar, "mode", "") or "")
         return bool(mode.strip())
 
-    def _toolbar_shortcuts(self):
-        rc_path = Path(mpl.matplotlib_fname())
-        shortcut_map = {
-            "home": "Reset original view",
-            "back": "Back to previous view",
-            "forward": "Forward to next view",
-            "pan": "Pan axes",
-            "zoom": "Zoom to rectangle",
-        }
-        resolved = {key: "Unavailable" for key in shortcut_map}
-        try:
-            for raw_line in rc_path.read_text().splitlines():
-                line = raw_line.strip()
-                if not line:
-                    continue
-                if line.startswith("#"):
-                    line = line[1:].strip()
-                line = line.split("#", 1)[0].rstrip()
-                if not line:
-                    continue
-                if not line.startswith("keymap.") or ":" not in line:
-                    continue
-                name, value = line.split(":", 1)
-                key = name.removeprefix("keymap.").strip()
-                if key in resolved:
-                    resolved[key] = value.strip() or "Unavailable"
-        except OSError:
-            pass
-        return rc_path, [(label, resolved[key]) for key, label in shortcut_map.items()]
-
-    def _draw_help_screen(self):
-        rc_path, toolbar_shortcuts = self._toolbar_shortcuts()
-        self.fig.suptitle("Keyboard Shortcuts", x=0.5, y=0.988, fontsize=12, ha="center")
-        self.fig.text(
-            0.5,
-            0.952,
-            "Built-in toolbar shortcuts are read from the active matplotlibrc file.",
-            fontsize=9,
-            ha="center",
-        )
-        viewer_shortcuts = [
-            ("Back one level", "backspace, left"),
-            ("Go home", "h"),
-        ]
-        viewer_shortcuts.append(("Toggle raw samples", "Show data points checkbox"))
-        viewer_shortcuts.append(("Filter Beam_Path", "SXR/HXR and Cu/SC checkboxes"))
-        toolbar_width = max(len(label) for label, _ in toolbar_shortcuts) + 2
-        viewer_width = max(len(label) for label, _ in viewer_shortcuts) + 2
-        toolbar_text = "\n".join(
-            f"{label:<{toolbar_width}} {keys}" for label, keys in toolbar_shortcuts
-        )
-        viewer_text = "\n".join(
-            f"{label:<{viewer_width}} {keys}" for label, keys in viewer_shortcuts
-        )
-        self.fig.text(0.5, 0.80, "Toolbar", fontsize=11, ha="center", family="monospace")
-        self.fig.text(
-            0.5,
-            0.64,
-            toolbar_text,
-            fontsize=10,
-            ha="center",
-            multialignment="left",
-            va="center",
-            family="monospace",
-            bbox={"boxstyle": "round,pad=0.6", "facecolor": "white", "edgecolor": "0.75"},
-        )
-        self.fig.text(0.5, 0.36, "Viewer", fontsize=11, ha="center", family="monospace")
-        self.fig.text(
-            0.5,
-            0.26,
-            viewer_text,
-            fontsize=10,
-            ha="center",
-            multialignment="left",
-            va="center",
-            family="monospace",
-            bbox={"boxstyle": "round,pad=0.6", "facecolor": "white", "edgecolor": "0.75"},
-        )
-        self.fig.text(0.5, 0.12, f"Source: {rc_path}", fontsize=8, ha="center", color="0.35")
-
     def _plot_axes(self):
-        if self.fig is None or self.show_help:
-            return []
-        return list(self.fig.axes[: len(self._items_for_path())])
+        return list(self._plot_axes_cache)
 
     def _path_key(self):
         return tuple(self.path)
@@ -667,77 +643,66 @@ class HierarchySparklineViewer:
         self.draw()
 
     def _draw_controls(self):
-        controls_y = 0.93
-        help_ax = self.fig.add_axes([0.02, controls_y, 0.11, 0.04])
-        help_label = "Close Help" if self.show_help else "Help"
-        self.help_button = Button(help_ax, help_label)
-        self.help_button.on_clicked(lambda _evt: self.toggle_help())
+        if self.fig is None:
+            return
+        current_canvas_size = self._canvas_pixel_size()
+        existing_widgets = (
+            self.show_points_checkbox,
+            self.beamline_filter_checkbox,
+            self.accelerator_filter_checkbox,
+        )
+        if all(
+            widget is not None and getattr(widget.ax, "figure", None) is self.fig
+            for widget in existing_widgets
+        ) and self._controls_canvas_size == current_canvas_size:
+            return
+
+        self._teardown_controls()
         self.show_points_checkbox = None
         self.beamline_filter_checkbox = None
         self.accelerator_filter_checkbox = None
-        if not self.show_help:
-            row_y = 0.835
-            row_height = 0.06
-            widths = [0.20, 0.11, 0.10]
-            gap = 0.03
-            row_width = sum(widths) + gap * (len(widths) - 1)
-            row_x = 0.5 - row_width / 2
+        row_y = 0.835
+        row_height = 0.06
+        widths = [0.20, 0.11, 0.10]
+        gap = 0.03
+        row_width = sum(widths) + gap * (len(widths) - 1)
+        row_x = 0.5 - row_width / 2
 
-            checkbox_ax = self.fig.add_axes([row_x, row_y, widths[0], row_height])
-            checkbox_ax.set_frame_on(False)
-            self.show_points_checkbox = CheckButtons(
-                checkbox_ax, ["Show data points"], [self.show_data_points]
-            )
-            self.show_points_checkbox.on_clicked(self._on_toggle_show_data_points)
+        checkbox_ax = self.fig.add_axes([row_x, row_y, widths[0], row_height])
+        checkbox_ax.set_frame_on(False)
+        self.show_points_checkbox = CheckButtons(
+            checkbox_ax, ["Show data points"], [self.show_data_points]
+        )
+        self.show_points_checkbox.on_clicked(self._on_toggle_show_data_points)
 
-            beamline_ax = self.fig.add_axes(
-                [row_x + widths[0] + gap, row_y, widths[1], row_height]
-            )
-            beamline_ax.set_frame_on(False)
-            self.beamline_filter_checkbox = CheckButtons(
-                beamline_ax,
-                ["SXR", "HXR"],
-                [self.filter_sxr, self.filter_hxr],
-            )
-            self.beamline_filter_checkbox.on_clicked(self._on_toggle_beamline_filter)
+        beamline_ax = self.fig.add_axes(
+            [row_x + widths[0] + gap, row_y, widths[1], row_height]
+        )
+        beamline_ax.set_frame_on(False)
+        self.beamline_filter_checkbox = CheckButtons(
+            beamline_ax,
+            ["SXR", "HXR"],
+            [self.filter_sxr, self.filter_hxr],
+        )
+        self.beamline_filter_checkbox.on_clicked(self._on_toggle_beamline_filter)
 
-            accelerator_ax = self.fig.add_axes(
-                [row_x + widths[0] + widths[1] + 2 * gap, row_y, widths[2], row_height]
-            )
-            accelerator_ax.set_frame_on(False)
-            self.accelerator_filter_checkbox = CheckButtons(
-                accelerator_ax,
-                ["Cu", "SC"],
-                [self.filter_cu, self.filter_sc],
-            )
-            self.accelerator_filter_checkbox.on_clicked(self._on_toggle_accelerator_filter)
+        accelerator_ax = self.fig.add_axes(
+            [row_x + widths[0] + widths[1] + 2 * gap, row_y, widths[2], row_height]
+        )
+        accelerator_ax.set_frame_on(False)
+        self.accelerator_filter_checkbox = CheckButtons(
+            accelerator_ax,
+            ["Cu", "SC"],
+            [self.filter_cu, self.filter_sc],
+        )
+        self.accelerator_filter_checkbox.on_clicked(self._on_toggle_accelerator_filter)
+        self._controls_canvas_size = current_canvas_size
 
     def _schedule_draw(self):
-        if self.fig is None or getattr(self.fig, "canvas", None) is None:
-            self.draw()
-            return
-
-        canvas = self.fig.canvas
-        if self._deferred_draw_timer is not None:
-            try:
-                self._deferred_draw_timer.stop()
-            except Exception:
-                pass
-
-        try:
-            timer = canvas.new_timer(interval=0)
-        except Exception:
-            self.draw()
-            return
-
-        timer.single_shot = True
-        timer.add_callback(self.draw)
-        self._deferred_draw_timer = timer
-        timer.start()
+        self.draw()
 
     def _teardown_controls(self):
         for attr in (
-            "help_button",
             "show_points_checkbox",
             "beamline_filter_checkbox",
             "accelerator_filter_checkbox",
@@ -751,7 +716,62 @@ class HierarchySparklineViewer:
                     disconnect()
                 except Exception:
                     pass
+            widget_ax = getattr(widget, "ax", None)
+            if widget_ax is not None:
+                try:
+                    widget_ax.remove()
+                except Exception:
+                    pass
             setattr(self, attr, None)
+        self._controls_canvas_size = None
+
+    def _canvas_pixel_size(self) -> tuple[int, int] | None:
+        if self.fig is None or getattr(self.fig, "canvas", None) is None:
+            return None
+        try:
+            width, height = self.fig.canvas.get_width_height()
+        except Exception:
+            return None
+        return int(width), int(height)
+
+    def _on_resize(self, _event):
+        if self._handling_resize:
+            return
+        current_canvas_size = self._canvas_pixel_size()
+        if current_canvas_size is None or current_canvas_size == self._controls_canvas_size:
+            return
+        self._handling_resize = True
+        try:
+            self.draw()
+        finally:
+            self._handling_resize = False
+
+    def _clear_dynamic_layout(self):
+        for ax in self._plot_axes_cache:
+            try:
+                ax.remove()
+            except Exception:
+                pass
+        self._plot_axes_cache = []
+
+        for ax in self._header_axes:
+            try:
+                ax.remove()
+            except Exception:
+                pass
+        self._header_axes = []
+
+        for artist in self._figure_text_artists:
+            try:
+                artist.remove()
+            except Exception:
+                pass
+        self._figure_text_artists = []
+
+    def _add_figure_text(self, *args, **kwargs):
+        artist = self.fig.text(*args, **kwargs)
+        self._figure_text_artists.append(artist)
+        return artist
 
     def _apply_time_tick_label_layout(self, axis):
         view_start, view_end = axis.get_xlim()
@@ -787,24 +807,19 @@ class HierarchySparklineViewer:
         if self.fig is None:
             self.fig = plt.figure(figsize=(fig_width, fig_height))
         else:
-            self._teardown_controls()
             self.fig.set_size_inches(fig_width, fig_height, forward=True)
-            self.fig.clf()
 
         if self.pick_cid is None:
             self.pick_cid = self.fig.canvas.mpl_connect("pick_event", self._on_pick)
             self.click_cid = self.fig.canvas.mpl_connect(
                 "button_press_event", self._on_click
             )
+            self.resize_cid = self.fig.canvas.mpl_connect(
+                "resize_event", self._on_resize
+            )
 
-        if self.show_help:
-            self.fig.subplots_adjust(top=0.84)
-            self._draw_help_screen()
-            self._draw_controls()
-            self.last_draw_report["total_seconds"] = time.perf_counter() - draw_started
-            self._write_draw_report()
-            self.fig.canvas.draw_idle()
-            return
+        self._draw_controls()
+        self._clear_dynamic_layout()
 
         if not items:
             self.label_targets = {}
@@ -812,21 +827,20 @@ class HierarchySparklineViewer:
             self.breadcrumb_targets = {}
             self.fig.subplots_adjust(top=0.78)
             self._draw_breadcrumbs()
-            self.fig.text(
+            self._add_figure_text(
                 0.5,
                 0.50,
                 "No PVs or groups match your selected filters.",
                 fontsize=10,
                 ha="center",
             )
-            self.fig.text(
+            self._add_figure_text(
                 0.5,
                 0.90,
                 "Use the Beam_Path checkboxes to expand or narrow the current view.",
                 fontsize=9,
                 ha="center",
             )
-            self._draw_controls()
             self._install_toolbar_home_hook()
             self.last_draw_report["total_seconds"] = time.perf_counter() - draw_started
             self._write_draw_report()
@@ -841,6 +855,7 @@ class HierarchySparklineViewer:
         )
         if len(items) == 1:
             axes = [axes]
+        self._plot_axes_cache = list(axes)
 
         self.label_targets = {}
         self.axis_targets = {}
@@ -1044,9 +1059,8 @@ class HierarchySparklineViewer:
                 "Single-PV view. Use Show data points, Beam_Path filters, or the "
                 "breadcrumb path to navigate."
             )
-        self.fig.text(0.5, 0.90, instruction, fontsize=9, ha="center")
+        self._add_figure_text(0.5, 0.90, instruction, fontsize=9, ha="center")
 
-        self._draw_controls()
         self._install_toolbar_home_hook()
         self._connect_limit_callbacks(axes)
         self._tracking_limits_enabled = True
@@ -1077,12 +1091,6 @@ class HierarchySparklineViewer:
             self.filter_sc = not self.filter_sc
         self._schedule_draw()
 
-    def toggle_help(self):
-        self._capture_view_limits()
-        self._pending_filter_ylims = None
-        self.show_help = not self.show_help
-        self._schedule_draw()
-
     def _on_click(self, event):
         if self._toolbar_mode_active():
             return
@@ -1091,7 +1099,6 @@ class HierarchySparklineViewer:
         control_axes = [
             getattr(getattr(self, attr, None), "ax", None)
             for attr in (
-                "help_button",
                 "show_points_checkbox",
                 "beamline_filter_checkbox",
                 "accelerator_filter_checkbox",

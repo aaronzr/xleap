@@ -19,7 +19,6 @@ _TOOLBAR_KEYMAPS: dict[str, tuple[str, ...]] = {
 _VIEWER_SHORTCUTS: dict[str, tuple[str, ...]] = {
     "viewer_back": ("Backspace", "Left"),
     "viewer_home": ("H",),
-    "toggle_help": ("?", "Shift+/"),
     "reset_original_view": ("Home", "R"),
 }
 
@@ -80,8 +79,6 @@ class SparklineHotkeyController(QtCore.QObject):
         sequence = QtGui.QKeySequence(int(event.modifiers()) | event.key())
         normalized = sequence.toString(QtGui.QKeySequence.PortableText)
         action = self._shortcut_actions.get(normalized)
-        if action is None and event.text() == "?":
-            action = self._shortcut_actions.get("Shift+/")
         if action is None:
             return super().eventFilter(obj, event)
 
@@ -92,7 +89,6 @@ class SparklineHotkeyController(QtCore.QObject):
     def _register_shortcuts(self) -> None:
         self._bind_sequences("viewer_back", _VIEWER_SHORTCUTS["viewer_back"])
         self._bind_sequences("viewer_home", _VIEWER_SHORTCUTS["viewer_home"])
-        self._bind_sequences("toggle_help", _VIEWER_SHORTCUTS["toggle_help"])
         self._bind_sequences(
             "reset_original_view", _VIEWER_SHORTCUTS["reset_original_view"]
         )
@@ -160,8 +156,6 @@ class SparklineHotkeyController(QtCore.QObject):
         lowered = token.lower()
         if lowered in _SPECIAL_KEYS:
             return _SPECIAL_KEYS[lowered]
-        if lowered == "?":
-            return "Shift+/"
         if len(token) == 1:
             return token.upper() if token.isalpha() else token
         if lowered.startswith("f") and lowered[1:].isdigit():
@@ -201,11 +195,6 @@ class SparklineHotkeyController(QtCore.QObject):
         viewer = self._viewer()
         if viewer is not None:
             viewer.home()
-
-    def _handle_toggle_help(self) -> None:
-        viewer = self._viewer()
-        if viewer is not None:
-            viewer.toggle_help()
 
     def _handle_reset_original_view(self) -> None:
         viewer = self._viewer()
