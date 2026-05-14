@@ -81,6 +81,32 @@ def _normalize_threshold(value, default=1.0) -> float:
         return float(default)
 
 
+def _normalize_bool(value, default=False) -> bool:
+    if value is None:
+        return bool(default)
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        token = value.strip().lower()
+        if token in {"1", "true", "yes", "on"}:
+            return True
+        if token in {"0", "false", "no", "off"}:
+            return False
+    return bool(value)
+
+
+def _normalize_optional_positive_float(value) -> float | None:
+    if value is None:
+        return None
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not np.isfinite(parsed) or parsed <= 0:
+        return None
+    return parsed
+
+
 def _normalize_beam_paths(value) -> tuple[str, ...]:
     if value is None:
         return ()
@@ -175,6 +201,13 @@ def _parse_group_hierarchy(pv_groups_dict: dict) -> dict:
                 continue
 
             inherited_subgroup_threshold = subgroup.get("threshold", group_threshold)
+            inherited_subgroup_measurement = _normalize_bool(
+                subgroup.get("measurement", False),
+                default=False,
+            )
+            inherited_subgroup_measurement_deadband = _normalize_optional_positive_float(
+                subgroup.get("measurement_deadband")
+            )
             subgroup_beam_paths = _normalize_beam_paths(
                 subgroup.get("Beam_Path", group_beam_paths)
             )
@@ -183,12 +216,24 @@ def _parse_group_hierarchy(pv_groups_dict: dict) -> dict:
                 if isinstance(entry, dict):
                     pv_name = str(entry.get("pv_name", "")).strip()
                     threshold = entry.get("threshold", inherited_subgroup_threshold)
+                    measurement = _normalize_bool(
+                        entry.get("measurement", inherited_subgroup_measurement),
+                        default=inherited_subgroup_measurement,
+                    )
+                    measurement_deadband = _normalize_optional_positive_float(
+                        entry.get(
+                            "measurement_deadband",
+                            inherited_subgroup_measurement_deadband,
+                        )
+                    )
                     beam_paths = _normalize_beam_paths(
                         entry.get("Beam_Path", subgroup_beam_paths)
                     )
                 elif isinstance(entry, str):
                     pv_name = entry.strip()
                     threshold = inherited_subgroup_threshold
+                    measurement = inherited_subgroup_measurement
+                    measurement_deadband = inherited_subgroup_measurement_deadband
                     beam_paths = subgroup_beam_paths
                 else:
                     continue
@@ -200,6 +245,8 @@ def _parse_group_hierarchy(pv_groups_dict: dict) -> dict:
                     {
                         "pv_name": pv_name,
                         "threshold": _normalize_threshold(threshold, default=1.0),
+                        "measurement": measurement,
+                        "measurement_deadband": measurement_deadband,
                         "beam_paths": beam_paths,
                     }
                 )
@@ -603,6 +650,8 @@ def build_composite_hierarchy(
                 pv_entry["beam_paths"] = spec.get(
                     "beam_paths", subgroup.get("beam_paths", ())
                 )
+                pv_entry["measurement"] = bool(spec.get("measurement", False))
+                pv_entry["measurement_deadband"] = spec.get("measurement_deadband")
                 pv_data.append(pv_entry)
                 threshold_map[pv_name] = spec["threshold"]
 

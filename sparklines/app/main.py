@@ -449,6 +449,15 @@ class SparklineMainWindow(QtWidgets.QMainWindow):
         self._set_status("Failed to load hierarchy.", error=True)
         self.summary_label.setText(error_text)
 
+    def _dispose_viewer(self) -> None:
+        if self.viewer is None:
+            return
+        try:
+            self.viewer.dispose()
+        except Exception:
+            pass
+        self.viewer = None
+
     def _apply_hierarchy(
         self,
         hierarchy: dict,
@@ -460,6 +469,8 @@ class SparklineMainWindow(QtWidgets.QMainWindow):
         self._end_time = end_time
         navigation_state = getattr(self, "_pending_navigation_state", None)
         self._pending_navigation_state = None
+
+        self._dispose_viewer()
 
         self.viewer = HierarchySparklineViewer(
             hierarchy,
@@ -552,6 +563,7 @@ class SparklineMainWindow(QtWidgets.QMainWindow):
         if self._loader_thread is not None:
             self._loader_thread.quit()
             self._loader_thread.wait(250)
+        self._dispose_viewer()
         super().closeEvent(event)
 
 

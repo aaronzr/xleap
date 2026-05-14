@@ -464,6 +464,45 @@ def detect_tuning(t, timeout=300):
     return periods
 
 
+def _event_times_from_value_changes(t, y, min_delta=None):
+    """Return event times filtered by absolute value change from last setpoint."""
+    t_arr = np.asarray(t, dtype=float)
+    y_arr = np.asarray(y, dtype=float)
+    if t_arr.shape != y_arr.shape:
+        raise ValueError(
+            "time/value length mismatch: "
+            f"len(t)={t_arr.size} len(y)={y_arr.size}"
+        )
+    if t_arr.size == 0:
+        return np.array([], dtype=float)
+
+    mask = np.isfinite(t_arr) & np.isfinite(y_arr)
+    t_arr = t_arr[mask]
+    y_arr = y_arr[mask]
+    if t_arr.size == 0:
+        return np.array([], dtype=float)
+
+    order = np.argsort(t_arr, kind='mergesort')
+    t_sorted = t_arr[order]
+    y_sorted = y_arr[order]
+
+    if min_delta is None:
+        return t_sorted
+
+    min_delta = float(min_delta)
+    if not np.isfinite(min_delta) or min_delta <= 0:
+        return t_sorted
+
+    events = []
+    last_setpoint = float(y_sorted[0])
+    for ti, yi in zip(t_sorted[1:], y_sorted[1:]):
+        yi = float(yi)
+        if abs(yi - last_setpoint) >= min_delta:
+            events.append(float(ti))
+            last_setpoint = yi
+    return np.asarray(events, dtype=float)
+
+
 def get_tuning_events(t, timeout=300, values=None):
     """
     Return tuning periods or tuning period summaries with value statistics.
@@ -761,6 +800,8 @@ def plot_tuning_groups(group_pvs, start, end, lock_y=True, timeout=300,
 
 def add_tuning_overlay(ax, tuning_periods=None, timeout=300, color=None,
                        alpha=None, linewidth=0, hide_points=False,
+                       event_value_delta=None,
+                       setpoint_avg_window_s=None,
                        shade_range=False, interpolate_line=False):
     """
     Add tuning period triangles and truncated step lines to an axis.
@@ -785,6 +826,13 @@ def add_tuning_overlay(ax, tuning_periods=None, timeout=300, color=None,
     hide_points : bool, optional
         If True, hide existing scatter points on the axis (collections) after
         adding the overlay.
+    event_value_delta : float or None, optional
+        When set, tuning events are registered only when the absolute change
+        from the previous setpoint is at least this value.
+    setpoint_avg_window_s : float or None, optional
+        Duration (seconds) of the averaging window used to compute the new
+        setpoint value after a tuning period ends. If None, use the original
+        end-of-period value (no post-period averaging).
     shade_range : bool, optional
         If True, shade the tuning period with axvspan instead of triangles.
     interpolate_line : bool, optional
@@ -838,6 +886,17 @@ def add_tuning_overlay(ax, tuning_periods=None, timeout=300, color=None,
     triangles = []
     steps = []
 
+    use_setpoint_avg_window = setpoint_avg_window_s is not None
+    if use_setpoint_avg_window:
+        try:
+            setpoint_avg_window_s = float(setpoint_avg_window_s)
+        except (TypeError, ValueError):
+            use_setpoint_avg_window = False
+    if use_setpoint_avg_window and (
+        not np.isfinite(setpoint_avg_window_s) or setpoint_avg_window_s <= 0
+    ):
+        use_setpoint_avg_window = False
+
     for s in series:
         t_arr = np.asarray(s['t'])
         x_arr = np.asarray(s['x'])
@@ -848,13 +907,33 @@ def add_tuning_overlay(ax, tuning_periods=None, timeout=300, color=None,
 
         # Compute tuning periods per series unless provided.
         if tuning_periods is None:
-            periods = detect_tuning(t_arr, timeout=timeout)
+            event_times = _event_times_from_value_changes(
+                t_arr,
+                y_arr,
+                min_delta=event_value_delta,
+            )
+            periods = detect_tuning(event_times, timeout=timeout)
         else:
             periods = tuning_periods
 
         t_on_list = []
         t_last_list = []
         y_last_list = []
+        y_setpoint_list = []
+
+        def _average_after_period_end(t_end):
+            if not use_setpoint_avg_window:
+                return None
+            window_mask = (t_arr > t_end) & (t_arr <= (t_end + setpoint_avg_window_s))
+            if not window_mask.any():
+                return None
+            y_window = y_arr[window_mask]
+            if y_window.size == 0:
+                return None
+            y_mean = float(np.mean(y_window))
+            if not np.isfinite(y_mean):
+                return None
+            return y_mean
 
         # If no fixed alpha is given, alpha = percentage change from previous set point
         adaptive_alpha = (alpha is None)
@@ -871,10 +950,15 @@ def add_tuning_overlay(ax, tuning_periods=None, timeout=300, color=None,
             y_last = float(y_arr[idx_last])
             x0 = float(x_arr[mask][0])
             x_last = float(x_arr[idx_last])
+
+            y_setpoint = _average_after_period_end(t_off)
+            if y_setpoint is None:
+                y_setpoint = y_last
+
             if adaptive_alpha:
-                last_set_point = y_last_list[-1] if y_last_list else y_arr[0]
+                last_set_point = y_setpoint_list[-1] if y_setpoint_list else y_arr[0]
                 denom = abs(last_set_point) if last_set_point != 0 else 1.0
-                rel = abs(y_last - last_set_point) / denom
+                rel = abs(y_setpoint - last_set_point) / denom
                 small_scale = 0.05
                 alpha_i = 0.05 + 0.75 * np.log1p(rel / small_scale) / np.log1p(1.0 / small_scale)
                 alpha_i = max(0.05, min(0.8, alpha_i))
@@ -893,6 +977,7 @@ def add_tuning_overlay(ax, tuning_periods=None, timeout=300, color=None,
             t_on_list.append(t_on)
             t_last_list.append(t_last)
             y_last_list.append(y_last)
+            y_setpoint_list.append(y_setpoint)
 
         # Line segments: flat between tuning regions; optional diagonal within regions.
         step_x = []
@@ -904,11 +989,11 @@ def add_tuning_overlay(ax, tuning_periods=None, timeout=300, color=None,
             if i > 0:
                 x_prev_last = float(x_arr[np.where(t_arr == t_last_list[i - 1])[0][0]])
                 step_x.extend([x_prev_last, x_on])
-                step_y.extend([y_last_list[i - 1], y_last_list[i - 1]])
+                step_y.extend([y_setpoint_list[i - 1], y_setpoint_list[i - 1]])
             # Within tuning region: diagonal or hidden.
             if interpolate_line and i > 0:
                 step_x.extend([x_on, x_last])
-                step_y.extend([y_last_list[i - 1], y_last_list[i]])
+                step_y.extend([y_setpoint_list[i - 1], y_setpoint_list[i]])
             elif not interpolate_line:
                 step_x.append(np.nan)
                 step_y.append(np.nan)
@@ -916,7 +1001,7 @@ def add_tuning_overlay(ax, tuning_periods=None, timeout=300, color=None,
             x_end = ax.get_xlim()[1]
             x_last = float(x_arr[np.where(t_arr == t_last_list[-1])[0][0]])
             step_x.extend([x_last, x_end])
-            step_y.extend([y_last_list[-1], y_last_list[-1]])
+            step_y.extend([y_setpoint_list[-1], y_setpoint_list[-1]])
             if not interpolate_line:
                 step_x.append(np.nan)
                 step_y.append(np.nan)

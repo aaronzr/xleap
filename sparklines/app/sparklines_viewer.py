@@ -604,18 +604,41 @@ class HierarchySparklineViewer:
         if self.fig is None:
             return
         toolbar = getattr(self.fig.canvas, "toolbar", None)
-        if toolbar is None or getattr(toolbar, "_hierarchy_original_view_hook", False):
+        if toolbar is None:
             return
 
-        original_home = toolbar.home
+        if not hasattr(toolbar, "_hierarchy_original_home"):
+            toolbar._hierarchy_original_home = toolbar.home
+
+        if getattr(toolbar, "_hierarchy_home_hook_owner", None) is self:
+            return
 
         def _home(*args, **kwargs):
-            result = original_home(*args, **kwargs)
+            original_home = getattr(toolbar, "_hierarchy_original_home", None)
+            result = original_home(*args, **kwargs) if callable(original_home) else None
             self._reset_original_view()
             return result
 
         toolbar.home = _home
-        toolbar._hierarchy_original_view_hook = True
+        toolbar._hierarchy_home_hook_owner = self
+
+    def _uninstall_toolbar_home_hook(self):
+        if self.fig is None:
+            return
+        toolbar = getattr(self.fig.canvas, "toolbar", None)
+        if toolbar is None:
+            return
+        if getattr(toolbar, "_hierarchy_home_hook_owner", None) is not self:
+            return
+
+        original_home = getattr(toolbar, "_hierarchy_original_home", None)
+        if callable(original_home):
+            toolbar.home = original_home
+
+        if hasattr(toolbar, "_hierarchy_home_hook_owner"):
+            delattr(toolbar, "_hierarchy_home_hook_owner")
+        if hasattr(toolbar, "_hierarchy_original_home"):
+            delattr(toolbar, "_hierarchy_original_home")
 
     def _trigger_toolbar_home(self):
         if self.fig is None:
@@ -724,6 +747,30 @@ class HierarchySparklineViewer:
                     pass
             setattr(self, attr, None)
         self._controls_canvas_size = None
+
+    def dispose(self):
+        self._tracking_limits_enabled = False
+
+        canvas = None
+        if self.fig is not None:
+            canvas = getattr(self.fig, "canvas", None)
+        if canvas is not None:
+            for attr in ("pick_cid", "click_cid", "resize_cid"):
+                cid = getattr(self, attr, None)
+                if cid is None:
+                    continue
+                try:
+                    canvas.mpl_disconnect(cid)
+                except Exception:
+                    pass
+                setattr(self, attr, None)
+
+        self._teardown_controls()
+        self._clear_dynamic_layout()
+        self._uninstall_toolbar_home_hook()
+        self.label_targets = {}
+        self.axis_targets = {}
+        self.breadcrumb_targets = {}
 
     def _canvas_pixel_size(self) -> tuple[int, int] | None:
         if self.fig is None or getattr(self.fig, "canvas", None) is None:
@@ -1010,7 +1057,17 @@ class HierarchySparklineViewer:
             ax.xaxis.grid(True, alpha=0.25)
             ax.yaxis.grid(True, alpha=0.25)
             if not is_monitor:
-                add_tuning_overlay(ax, hide_points=not self.show_data_points)
+                measurement_deadband = None
+                measurement_setpoint_avg_window_s = None
+                if bool(item["data"].get("measurement", False)):
+                    measurement_deadband = item["data"].get("measurement_deadband")
+                    measurement_setpoint_avg_window_s = 300
+                add_tuning_overlay(
+                    ax,
+                    hide_points=not self.show_data_points,
+                    event_value_delta=measurement_deadband,
+                    setpoint_avg_window_s=measurement_setpoint_avg_window_s,
+                )
             self.last_draw_report["items"].append(
                 {
                     "label": item["label"],

@@ -258,12 +258,20 @@ groups:
         threshold: 0.05
         pv:
           - pv_name: BPMS:GUNB:314:FW:X_SLOW
+            measurement: true
+            measurement_deadband: 0.1
             Beam_Path: SC_SXR, SC_HXR
           - pv_name: BPMS:GUNB:314:FW:Y_SLOW
+            measurement: true
+            measurement_deadband: 0.1
             Beam_Path: SC_SXR, SC_HXR
           - pv_name: BPMS:IN20:221:XCU1H
+            measurement: true
+            measurement_deadband: 0.1
             Beam_Path: CU_SXR, CU_HXR
           - pv_name: BPMS:IN20:221:YCU1H
+            measurement: true
+            measurement_deadband: 0.1
             Beam_Path: CU_SXR, CU_HXR
       XLEAP:
         pv:
