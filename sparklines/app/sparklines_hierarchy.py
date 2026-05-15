@@ -107,6 +107,121 @@ def _normalize_optional_positive_float(value) -> float | None:
     return parsed
 
 
+def _event_times_from_value_changes(t, y, min_delta=None):
+    t_arr = np.asarray(t, dtype=float)
+    y_arr = np.asarray(y, dtype=float)
+    if t_arr.shape != y_arr.shape:
+        raise ValueError(
+            "time/value length mismatch: "
+            f"len(t)={t_arr.size} len(y)={y_arr.size}"
+        )
+    if t_arr.size == 0:
+        return np.array([], dtype=float)
+
+    mask = np.isfinite(t_arr) & np.isfinite(y_arr)
+    t_arr = t_arr[mask]
+    y_arr = y_arr[mask]
+    if t_arr.size == 0:
+        return np.array([], dtype=float)
+
+    order = np.argsort(t_arr, kind="mergesort")
+    t_sorted = t_arr[order]
+    y_sorted = y_arr[order]
+
+    if min_delta is None:
+        return t_sorted
+
+    min_delta = float(min_delta)
+    if not np.isfinite(min_delta) or min_delta <= 0:
+        return t_sorted
+
+    events = []
+    last_setpoint = float(y_sorted[0])
+    for ti, yi in zip(t_sorted[1:], y_sorted[1:]):
+        yi = float(yi)
+        if abs(yi - last_setpoint) >= min_delta:
+            events.append(float(ti))
+            last_setpoint = yi
+    return np.asarray(events, dtype=float)
+
+
+def _detect_tuning_periods(t, timeout=300):
+    t_arr = np.asarray(t, dtype=float)
+    if t_arr.size == 0:
+        return []
+
+    t_arr = np.sort(t_arr[np.isfinite(t_arr)])
+    if t_arr.size == 0:
+        return []
+
+    periods = []
+    t_on = float(t_arr[0])
+    last_event = float(t_arr[0])
+    for ti in t_arr[1:]:
+        ti = float(ti)
+        if ti - last_event <= timeout:
+            last_event = ti
+            continue
+        periods.append((t_on, last_event))
+        t_on = ti
+        last_event = ti
+
+    periods.append((t_on, last_event))
+    return periods
+
+
+def _series_from_time_values(template: dict, t: np.ndarray, values: np.ndarray) -> dict:
+    seconds = np.floor(t).astype(np.int64)
+    nanoseconds = np.rint((t - seconds) * 1e9).astype(np.int64)
+    rollover = nanoseconds == 1000000000
+    seconds[rollover] += 1
+    nanoseconds[rollover] = 0
+
+    out = dict(template)
+    out["secondsPastEpoch"] = seconds
+    out["nanoseconds"] = nanoseconds
+    out["values"] = np.asarray(values, dtype=float)
+    out["severity"] = np.zeros_like(seconds, dtype=np.int64)
+    out["status"] = np.zeros_like(seconds, dtype=np.int64)
+    return out
+
+
+def _compress_measurement_series_for_composite(data: dict, deadband=None, timeout=300):
+    t, values = _extract_time_and_values(data)
+    if t.size == 0:
+        return data
+
+    order = np.argsort(t, kind="mergesort")
+    t = t[order]
+    values = values[order]
+
+    event_times = _event_times_from_value_changes(t, values, min_delta=deadband)
+    periods = _detect_tuning_periods(event_times, timeout=timeout)
+    if not periods:
+        return _series_from_time_values(data, t[:1], values[:1])
+
+    keep_indices = {0}
+    for t_on, t_off in periods:
+        period_mask = (t >= t_on) & (t <= t_off)
+        period_indices = np.flatnonzero(period_mask)
+        if period_indices.size == 0:
+            continue
+        first_idx = int(period_indices[0])
+        last_idx = int(period_indices[-1])
+        period_values = values[period_indices]
+        keep_indices.update(
+            {
+                first_idx,
+                last_idx,
+                int(period_indices[np.argmin(period_values)]),
+                int(period_indices[np.argmax(period_values)]),
+            }
+        )
+
+    keep = np.asarray(sorted(keep_indices), dtype=int)
+    return _series_from_time_values(data, t[keep], values[keep])
+
+
 def _normalize_beam_paths(value) -> tuple[str, ...]:
     if value is None:
         return ()
@@ -335,8 +450,11 @@ def _build_composite_from_series(
             abs(current_values[name] - baseline_values[name])
             for name in baseline_values
         ]
+        composite_value = sum(deltas) / len(deltas) if deltas else 0.0
+        if composite_value == composite_values[-1]:
+            continue
         composite_times.append(ts)
-        composite_values.append(sum(deltas) / len(deltas) if deltas else 0.0)
+        composite_values.append(composite_value)
 
     composite_times = np.asarray(composite_times, dtype=float)
     seconds = np.floor(composite_times).astype(np.int64)
@@ -645,13 +763,21 @@ def build_composite_hierarchy(
                 pv_name = spec["pv_name"]
                 if pv_name not in pv_cache:
                     continue
-                pv_series.append((pv_name, pv_cache[pv_name]))
                 pv_entry = dict(pv_cache[pv_name])
                 pv_entry["beam_paths"] = spec.get(
                     "beam_paths", subgroup.get("beam_paths", ())
                 )
                 pv_entry["measurement"] = bool(spec.get("measurement", False))
                 pv_entry["measurement_deadband"] = spec.get("measurement_deadband")
+                composite_source = (
+                    _compress_measurement_series_for_composite(
+                        pv_entry,
+                        deadband=pv_entry.get("measurement_deadband"),
+                    )
+                    if pv_entry["measurement"]
+                    else pv_entry
+                )
+                pv_series.append((pv_name, composite_source))
                 pv_data.append(pv_entry)
                 threshold_map[pv_name] = spec["threshold"]
 

@@ -202,6 +202,71 @@ monitor_pvs:
 
         self.assertEqual(captured["max_workers"], hierarchy_module.ARCHIVE_MAX_WORKERS)
 
+    def test_compress_measurement_series_keeps_period_endpoints_and_extrema(self):
+        data = _archive_series("PV:MEAS", [0.0, 0.01, 0.02, 0.5, 0.4, 0.7, 0.02])
+
+        compressed = hierarchy_module._compress_measurement_series_for_composite(
+            data,
+            deadband=0.1,
+            timeout=300,
+        )
+
+        np.testing.assert_array_equal(
+            compressed["secondsPastEpoch"],
+            data["secondsPastEpoch"][[0, 3, 5, 6]],
+        )
+        np.testing.assert_array_equal(
+            compressed["values"],
+            np.asarray([0.0, 0.5, 0.7, 0.02]),
+        )
+
+    def test_measurement_pvs_are_compressed_before_mixed_group_composite(self):
+        pv_groups = {
+            "groups": [
+                {
+                    "group_name": "mixed",
+                    "subgroups": {
+                        "sub": {
+                            "pv": [
+                                {
+                                    "pv_name": "PV:MEAS",
+                                    "measurement": True,
+                                    "measurement_deadband": 0.1,
+                                },
+                                {"pv_name": "PV:CTRL"},
+                            ],
+                        },
+                    },
+                },
+            ],
+        }
+
+        archive = {
+            "PV:MEAS": _archive_series(
+                "PV:MEAS",
+                [0.0, 0.01, 0.02, 0.5, 0.4, 0.7, 0.02],
+            ),
+            "PV:CTRL": _archive_series("PV:CTRL", [1.0] * 7),
+        }
+
+        with mock.patch.object(
+            hierarchy_module,
+            "_fetch_archive_batch",
+            return_value=(archive, {}, {}),
+        ):
+            hierarchy = hierarchy_module.build_composite_hierarchy(
+                pv_groups,
+                dt.datetime(2026, 1, 1, 0, 0, 0),
+                dt.datetime(2026, 1, 1, 1, 0, 0),
+                monitor_specs={},
+            )
+
+        composite = hierarchy["groups"]["mixed"]["subgroups"]["sub"]["composite"]
+        np.testing.assert_array_equal(
+            composite["secondsPastEpoch"],
+            archive["PV:MEAS"]["secondsPastEpoch"][[0, 3, 5, 6]],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
