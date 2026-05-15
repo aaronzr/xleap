@@ -831,8 +831,9 @@ def add_tuning_overlay(ax, tuning_periods=None, timeout=300, color=None,
         from the previous setpoint is at least this value.
     setpoint_avg_window_s : float or None, optional
         Duration (seconds) of the averaging window used to compute the new
-        setpoint value after a tuning period ends. If None, use the original
-        end-of-period value (no post-period averaging).
+        setpoint value after a tuning period ends and the initial setpoint
+        value at the left edge of the current x-axis range. If None, use the
+        original end-of-period value (no averaging).
     shade_range : bool, optional
         If True, shade the tuning period with axvspan instead of triangles.
     interpolate_line : bool, optional
@@ -921,10 +922,13 @@ def add_tuning_overlay(ax, tuning_periods=None, timeout=300, color=None,
         y_last_list = []
         y_setpoint_list = []
 
-        def _average_after_period_end(t_end):
+        def _average_in_window(t_start, t_end, *, include_start=False):
             if not use_setpoint_avg_window:
                 return None
-            window_mask = (t_arr > t_end) & (t_arr <= (t_end + setpoint_avg_window_s))
+            if include_start:
+                window_mask = (t_arr >= t_start) & (t_arr <= t_end)
+            else:
+                window_mask = (t_arr > t_start) & (t_arr <= t_end)
             if not window_mask.any():
                 return None
             y_window = y_arr[window_mask]
@@ -934,6 +938,23 @@ def add_tuning_overlay(ax, tuning_periods=None, timeout=300, color=None,
             if not np.isfinite(y_mean):
                 return None
             return y_mean
+
+        def _average_after_period_end(t_end):
+            if not use_setpoint_avg_window:
+                return None
+            return _average_in_window(t_end, t_end + setpoint_avg_window_s)
+
+        x_range_start = float(min(ax.get_xlim())) * 86400.0
+        x_range_end = float(max(ax.get_xlim())) * 86400.0
+        y_initial_setpoint = None
+        if use_setpoint_avg_window:
+            y_initial_setpoint = _average_in_window(
+                x_range_start,
+                min(x_range_start + setpoint_avg_window_s, x_range_end),
+                include_start=True,
+            )
+        if y_initial_setpoint is None and y_arr.size:
+            y_initial_setpoint = float(y_arr[0])
 
         # If no fixed alpha is given, alpha = percentage change from previous set point
         adaptive_alpha = (alpha is None)
@@ -956,7 +977,11 @@ def add_tuning_overlay(ax, tuning_periods=None, timeout=300, color=None,
                 y_setpoint = y_last
 
             if adaptive_alpha:
-                last_set_point = y_setpoint_list[-1] if y_setpoint_list else y_arr[0]
+                last_set_point = (
+                    y_setpoint_list[-1]
+                    if y_setpoint_list
+                    else y_initial_setpoint
+                )
                 denom = abs(last_set_point) if last_set_point != 0 else 1.0
                 rel = abs(y_setpoint - last_set_point) / denom
                 small_scale = 0.05
@@ -985,6 +1010,9 @@ def add_tuning_overlay(ax, tuning_periods=None, timeout=300, color=None,
         for i in range(len(t_last_list)):
             x_last = float(x_arr[np.where(t_arr == t_last_list[i])[0][0]])
             x_on = float(x_arr[np.where(t_arr == t_on_list[i])[0][0]])
+            if i == 0 and y_initial_setpoint is not None:
+                step_x.extend([min(ax.get_xlim()), x_on])
+                step_y.extend([y_initial_setpoint, y_initial_setpoint])
             # Flat segment between regions (from prev period end to this start).
             if i > 0:
                 x_prev_last = float(x_arr[np.where(t_arr == t_last_list[i - 1])[0][0]])

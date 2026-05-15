@@ -368,6 +368,12 @@ class HierarchySparklineViewerUiTests(unittest.TestCase):
         self.viewer.show_points_checkbox.set_active(0)
         self.viewer.fig.canvas.draw()
         self._assert_plot_xlimits(xlim)
+        self._assert_plot_ylims_raw([ylim] * len(self._plot_axes()))
+
+        self.viewer.show_points_checkbox.set_active(0)
+        self.viewer.fig.canvas.draw()
+        self._assert_plot_xlimits(xlim)
+        self._assert_plot_ylims_raw([ylim] * len(self._plot_axes()))
 
         self._click_plot_axis(0)
         self._assert_plot_xlimits(xlim)
@@ -510,7 +516,7 @@ class HierarchySparklineViewerUiTests(unittest.TestCase):
         self.viewer.show_points_checkbox.set_active(0)
         self.viewer.fig.canvas.draw()
         self._assert_plot_xlimits(xlim)
-        self._assert_first_axis_ylim_raw(original_ylim)
+        self._assert_first_axis_ylim_raw(ylim)
 
         self.viewer.fig.canvas.toolbar.home()
         self.viewer.fig.canvas.draw()

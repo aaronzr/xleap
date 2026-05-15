@@ -597,8 +597,7 @@ class HierarchySparklineViewer:
         self._pending_filter_ylims = None
         if len(axes) == 0:
             return
-        self._apply_view_limits(axes, self._items_for_path())
-        self.fig.canvas.draw_idle()
+        self.draw()
 
     def _install_toolbar_home_hook(self):
         if self.fig is None:
@@ -1057,6 +1056,7 @@ class HierarchySparklineViewer:
             ax.xaxis.grid(True, alpha=0.25)
             ax.yaxis.grid(True, alpha=0.25)
             if not is_monitor:
+                ax.set_xlim(*self.initial_xlim)
                 measurement_deadband = None
                 measurement_setpoint_avg_window_s = None
                 if bool(item["data"].get("measurement", False)):
@@ -1127,8 +1127,7 @@ class HierarchySparklineViewer:
         self.fig.canvas.draw_idle()
 
     def _on_toggle_show_data_points(self, _label):
-        self._capture_view_limits()
-        self._pending_filter_ylims = None
+        self._capture_view_limits(include_ylim=True)
         self.show_data_points = not self.show_data_points
         self._schedule_draw()
 
