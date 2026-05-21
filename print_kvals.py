@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import sys
 from pathlib import Path
 
 
@@ -38,9 +39,9 @@ def main(argv: list[str] | None = None) -> int:
         for values in iter_kvals_values(Path(args.csv_path)):
             print(",".join(values))
     except ValueError as exc:
-        parser.error(str(exc))
-    else:
-        return 0
+        print(f"{parser.prog}: error: {exc}", file=sys.stderr)
+        return 2
+    return 0
 
 
 if __name__ == "__main__":

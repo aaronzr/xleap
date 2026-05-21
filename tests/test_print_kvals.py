@@ -44,3 +44,11 @@ def test_iter_kvals_values_rejects_malformed_data_rows(tmp_path: Path):
 
     with pytest.raises(ValueError, match="line 2"):
         list(iter_kvals_values(csv_path))
+
+
+def test_main_returns_non_zero_for_invalid_csv(tmp_path: Path, capsys):
+    csv_path = tmp_path / "kvals.csv"
+    csv_path.write_text("time,26.0\n2021-01-01 00:00:00,5.1\n", encoding="utf-8")
+
+    assert main([str(csv_path)]) == 2
+    assert "error" in capsys.readouterr().err
