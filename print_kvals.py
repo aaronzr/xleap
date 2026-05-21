@@ -6,6 +6,7 @@ from pathlib import Path
 
 
 def iter_kvals_values(csv_path: Path):
+    """Yield each data row's K-values from a kvals CSV file."""
     with csv_path.open(newline="", encoding="utf-8") as csv_file:
         reader = csv.reader(csv_file)
         next(reader, None)
