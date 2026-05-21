@@ -320,8 +320,8 @@ def _parse_group_hierarchy(pv_groups_dict: dict) -> dict:
                 subgroup.get("measurement", False),
                 default=False,
             )
-            inherited_subgroup_measurement_deadband = _normalize_optional_positive_float(
-                subgroup.get("measurement_deadband")
+            inherited_subgroup_deadband = _normalize_optional_positive_float(
+                subgroup.get("deadband")
             )
             subgroup_beam_paths = _normalize_beam_paths(
                 subgroup.get("Beam_Path", group_beam_paths)
@@ -335,10 +335,10 @@ def _parse_group_hierarchy(pv_groups_dict: dict) -> dict:
                         entry.get("measurement", inherited_subgroup_measurement),
                         default=inherited_subgroup_measurement,
                     )
-                    measurement_deadband = _normalize_optional_positive_float(
+                    deadband = _normalize_optional_positive_float(
                         entry.get(
-                            "measurement_deadband",
-                            inherited_subgroup_measurement_deadband,
+                            "deadband",
+                            inherited_subgroup_deadband,
                         )
                     )
                     beam_paths = _normalize_beam_paths(
@@ -348,7 +348,7 @@ def _parse_group_hierarchy(pv_groups_dict: dict) -> dict:
                     pv_name = entry.strip()
                     threshold = inherited_subgroup_threshold
                     measurement = inherited_subgroup_measurement
-                    measurement_deadband = inherited_subgroup_measurement_deadband
+                    deadband = inherited_subgroup_deadband
                     beam_paths = subgroup_beam_paths
                 else:
                     continue
@@ -361,7 +361,7 @@ def _parse_group_hierarchy(pv_groups_dict: dict) -> dict:
                         "pv_name": pv_name,
                         "threshold": _normalize_threshold(threshold, default=1.0),
                         "measurement": measurement,
-                        "measurement_deadband": measurement_deadband,
+                        "deadband": deadband,
                         "beam_paths": beam_paths,
                     }
                 )
@@ -768,11 +768,11 @@ def build_composite_hierarchy(
                     "beam_paths", subgroup.get("beam_paths", ())
                 )
                 pv_entry["measurement"] = bool(spec.get("measurement", False))
-                pv_entry["measurement_deadband"] = spec.get("measurement_deadband")
+                pv_entry["deadband"] = spec.get("deadband")
                 composite_source = (
                     _compress_measurement_series_for_composite(
                         pv_entry,
-                        deadband=pv_entry.get("measurement_deadband"),
+                        deadband=pv_entry.get("deadband"),
                     )
                     if pv_entry["measurement"]
                     else pv_entry
