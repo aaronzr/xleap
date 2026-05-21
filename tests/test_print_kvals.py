@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from print_kvals import iter_kvals_values, main
 
 
@@ -32,21 +34,13 @@ def test_iter_kvals_values_rejects_unexpected_header(tmp_path: Path):
     csv_path = tmp_path / "kvals.csv"
     csv_path.write_text("time,26.0,27.0\n2021-01-01 00:00:00,5.1,5.2\n", encoding="utf-8")
 
-    try:
+    with pytest.raises(ValueError, match="Datetime"):
         list(iter_kvals_values(csv_path))
-    except ValueError as exc:
-        assert "Datetime" in str(exc)
-    else:
-        raise AssertionError("Expected ValueError for unexpected header.")
 
 
 def test_iter_kvals_values_rejects_malformed_data_rows(tmp_path: Path):
     csv_path = tmp_path / "kvals.csv"
     csv_path.write_text("Datetime,26.0\n2021-01-01 00:00:00\n", encoding="utf-8")
 
-    try:
+    with pytest.raises(ValueError, match="line 2"):
         list(iter_kvals_values(csv_path))
-    except ValueError as exc:
-        assert "line 2" in str(exc)
-    else:
-        raise AssertionError("Expected ValueError for malformed row.")
