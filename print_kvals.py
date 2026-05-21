@@ -9,10 +9,19 @@ def iter_kvals_values(csv_path: Path):
     """Yield each data row's K-values from a kvals CSV file."""
     with csv_path.open(newline="", encoding="utf-8") as csv_file:
         reader = csv.reader(csv_file)
-        next(reader, None)
-        for row in reader:
-            if len(row) > 1:
-                yield row[1:]
+        header = next(reader, None)
+        if not header:
+            return
+        if header[0].strip().lower() != "datetime":
+            raise ValueError("Expected first CSV column to be 'Datetime'.")
+        for line_number, row in enumerate(reader, start=2):
+            if not row:
+                continue
+            if len(row) < 2:
+                raise ValueError(
+                    f"Malformed CSV row at line {line_number}: expected at least 2 columns."
+                )
+            yield row[1:]
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -25,8 +34,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    for values in iter_kvals_values(Path(args.csv_path)):
-        print(",".join(values))
+    try:
+        for values in iter_kvals_values(Path(args.csv_path)):
+            print(",".join(values))
+    except ValueError as exc:
+        parser.error(str(exc))
     return 0
 
 
