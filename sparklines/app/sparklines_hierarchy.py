@@ -317,7 +317,7 @@ def _parse_group_hierarchy(pv_groups_dict: dict) -> dict:
 
             inherited_subgroup_threshold = subgroup.get("threshold", group_threshold)
             inherited_subgroup_measurement = _normalize_bool(
-                subgroup.get("measurement", False),
+                subgroup.get("continuous", subgroup.get("measurement", False)),
                 default=False,
             )
             inherited_subgroup_measurement_deadband = _normalize_optional_positive_float(
@@ -332,7 +332,10 @@ def _parse_group_hierarchy(pv_groups_dict: dict) -> dict:
                     pv_name = str(entry.get("pv_name", "")).strip()
                     threshold = entry.get("threshold", inherited_subgroup_threshold)
                     measurement = _normalize_bool(
-                        entry.get("measurement", inherited_subgroup_measurement),
+                        entry.get(
+                            "continuous",
+                            entry.get("measurement", inherited_subgroup_measurement),
+                        ),
                         default=inherited_subgroup_measurement,
                     )
                     measurement_deadband = _normalize_optional_positive_float(

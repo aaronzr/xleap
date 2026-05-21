@@ -220,7 +220,7 @@ monitor_pvs:
             np.asarray([0.0, 0.5, 0.7, 0.02]),
         )
 
-    def test_measurement_pvs_are_compressed_before_mixed_group_composite(self):
+    def test_continuous_pvs_are_compressed_before_mixed_group_composite(self):
         pv_groups = {
             "groups": [
                 {
@@ -230,7 +230,7 @@ monitor_pvs:
                             "pv": [
                                 {
                                     "pv_name": "PV:MEAS",
-                                    "measurement": True,
+                                    "continuous": True,
                                     "measurement_deadband": 0.1,
                                 },
                                 {"pv_name": "PV:CTRL"},
