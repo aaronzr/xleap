@@ -39,7 +39,8 @@ def main(argv: list[str] | None = None) -> int:
             print(",".join(values))
     except ValueError as exc:
         parser.error(str(exc))
-    return 0
+    else:
+        return 0
 
 
 if __name__ == "__main__":
