@@ -14,7 +14,9 @@ def iter_kvals_values(csv_path: Path):
         if not header:
             return
         if header[0].strip().lower() != "datetime":
-            raise ValueError("Expected first CSV column to be 'Datetime'.")
+            raise ValueError(
+                "Expected first CSV column to be 'Datetime' (case-insensitive)."
+            )
         for line_number, row in enumerate(reader, start=2):
             if not row:
                 continue
