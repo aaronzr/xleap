@@ -1096,15 +1096,15 @@ class HierarchySparklineViewer:
             ax.yaxis.grid(True, alpha=0.25)
             if not is_monitor:
                 ax.set_xlim(*self.initial_xlim)
-                measurement_deadband = None
+                deadband = None
                 measurement_setpoint_avg_window_s = None
                 if bool(item["data"].get("measurement", False)):
-                    measurement_deadband = item["data"].get("measurement_deadband")
+                    deadband = item["data"].get("deadband")
                     measurement_setpoint_avg_window_s = 300
                 add_tuning_overlay(
                     ax,
                     hide_points=not self.show_data_points,
-                    event_value_delta=measurement_deadband,
+                    event_value_delta=deadband,
                     setpoint_avg_window_s=measurement_setpoint_avg_window_s,
                 )
             self.last_draw_report["items"].append(

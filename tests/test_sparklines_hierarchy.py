@@ -231,7 +231,7 @@ monitor_pvs:
                                 {
                                     "pv_name": "PV:MEAS",
                                     "measurement": True,
-                                    "measurement_deadband": 0.1,
+                                    "deadband": 0.1,
                                 },
                                 {"pv_name": "PV:CTRL"},
                             ],
