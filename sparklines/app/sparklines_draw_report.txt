@@ -2589,3 +2589,439 @@
   composite | matching | draw=0.0059s | points=385/385
   composite | other | draw=0.0036s | points=3/3
   composite | rf | draw=0.0032s | points=1/1
+2026-05-14T20:05:15 | path=All PV Groups | total=2.7241s
+  monitor | GMD | draw=0.2916s | points=814/230877
+  monitor | XGMD | draw=0.1131s | points=814/24508
+  monitor | GDET 241 | draw=0.0470s | points=979/28569
+  monitor | GDET 361 | draw=0.0465s | points=979/28570
+  composite | dispersion_quads | draw=0.0093s | points=623/623
+  composite | laser | draw=0.0071s | points=31/31
+  composite | matching | draw=0.0065s | points=317/317
+  composite | other | draw=0.0036s | points=3/3
+  composite | rf | draw=0.0039s | points=1/1
+2026-05-14T20:05:16 | path=All PV Groups | total=0.9782s
+  monitor | GMD | draw=0.2917s | points=814/230877
+  monitor | XGMD | draw=0.1164s | points=814/24508
+  monitor | GDET 241 | draw=0.0466s | points=979/28569
+  monitor | GDET 361 | draw=0.0468s | points=979/28570
+  composite | dispersion_quads | draw=0.0088s | points=623/623
+  composite | laser | draw=0.0067s | points=31/31
+  composite | matching | draw=0.0067s | points=317/317
+  composite | other | draw=0.0035s | points=3/3
+  composite | rf | draw=0.0033s | points=1/1
+2026-05-14T20:05:54 | path=All PV Groups | total=2.4887s
+  monitor | GMD | draw=0.2489s | points=367/198883
+  monitor | XGMD | draw=0.0692s | points=366/26185
+  monitor | GDET 241 | draw=0.0509s | points=968/28657
+  monitor | GDET 361 | draw=0.0506s | points=967/28654
+  composite | dispersion_quads | draw=0.0062s | points=20/20
+  composite | laser | draw=0.0128s | points=51/51
+  composite | matching | draw=0.0069s | points=276/276
+  composite | other | draw=0.0037s | points=2/2
+  composite | rf | draw=0.0038s | points=4/4
+2026-05-14T20:05:55 | path=All PV Groups | total=0.8036s
+  monitor | GMD | draw=0.2528s | points=367/198883
+  monitor | XGMD | draw=0.0654s | points=366/26185
+  monitor | GDET 241 | draw=0.0479s | points=968/28657
+  monitor | GDET 361 | draw=0.0484s | points=967/28654
+  composite | dispersion_quads | draw=0.0060s | points=20/20
+  composite | laser | draw=0.0087s | points=51/51
+  composite | matching | draw=0.0061s | points=276/276
+  composite | other | draw=0.0036s | points=2/2
+  composite | rf | draw=0.0039s | points=4/4
+2026-05-14T20:06:12 | path=laser | total=0.8369s
+  monitor | GMD | draw=0.2484s | points=367/198883
+  monitor | XGMD | draw=0.0664s | points=366/26185
+  monitor | GDET 241 | draw=0.0482s | points=968/28657
+  monitor | GDET 361 | draw=0.0477s | points=967/28654
+  composite | Charge | draw=0.0046s | points=1/1
+  composite | Position | draw=0.0088s | points=51/51
+  composite | XLEAP | draw=0.0031s | points=1/1
+2026-05-14T20:06:15 | path=laser / Position | total=1.2560s
+  monitor | GMD | draw=0.2495s | points=367/198883
+  monitor | XGMD | draw=0.0653s | points=366/26185
+  monitor | GDET 241 | draw=0.0487s | points=968/28657
+  monitor | GDET 361 | draw=0.0477s | points=967/28654
+  pv | BPMS:GUNB:314:FW:X_SLOW | draw=0.0051s | points=1/1
+  pv | BPMS:GUNB:314:FW:Y_SLOW | draw=0.0030s | points=1/1
+  pv | BPMS:IN20:221:XCU1H | draw=0.1281s | points=51588/51588
+  pv | BPMS:IN20:221:YCU1H | draw=0.1225s | points=51525/51525
+2026-05-14T20:06:21 | path=laser / Position / BPMS:IN20:221:XCU1H | total=0.3070s
+  pv | BPMS:IN20:221:XCU1H | draw=0.1222s | points=51588/51588
+2026-05-14T20:06:28 | path=laser / Position / BPMS:IN20:221:XCU1H | total=0.3345s
+  pv | BPMS:IN20:221:XCU1H | draw=0.1238s | points=51588/51588
+2026-05-14T20:06:52 | path=laser / Position / BPMS:IN20:221:XCU1H | total=0.3701s
+  pv | BPMS:IN20:221:XCU1H | draw=0.1254s | points=51588/51588
+2026-05-14T20:10:03 | path=laser / Position / BPMS:IN20:221:XCU1H | total=0.3813s
+  pv | BPMS:IN20:221:XCU1H | draw=0.1290s | points=51588/51588
+2026-05-14T20:10:03 | path=laser / Position / BPMS:IN20:221:XCU1H | total=0.3633s
+  pv | BPMS:IN20:221:XCU1H | draw=0.1379s | points=51588/51588
+2026-05-14T20:11:43 | path=laser / Position / BPMS:IN20:221:XCU1H | total=0.3200s
+  pv | BPMS:IN20:221:XCU1H | draw=0.1281s | points=51588/51588
+2026-05-14T20:11:46 | path=laser / Position / BPMS:IN20:221:XCU1H | total=0.3400s
+  pv | BPMS:IN20:221:XCU1H | draw=0.1418s | points=51588/51588
+2026-05-14T20:11:49 | path=laser / Position / BPMS:IN20:221:XCU1H | total=0.3149s
+  pv | BPMS:IN20:221:XCU1H | draw=0.1257s | points=51588/51588
+2026-05-14T20:12:00 | path=laser / Position / BPMS:IN20:221:XCU1H | total=0.3249s
+  pv | BPMS:IN20:221:XCU1H | draw=0.1265s | points=51588/51588
+2026-05-14T20:12:24 | path=laser / Position / BPMS:IN20:221:XCU1H | total=0.3678s
+  pv | BPMS:IN20:221:XCU1H | draw=0.1347s | points=51588/51588
+2026-05-14T20:12:43 | path=laser / Position / BPMS:IN20:221:XCU1H | total=0.2555s
+  pv | BPMS:IN20:221:XCU1H | draw=0.0765s | points=28445/28445
+2026-05-14T20:12:43 | path=laser / Position / BPMS:IN20:221:XCU1H | total=0.1985s
+  pv | BPMS:IN20:221:XCU1H | draw=0.0657s | points=28445/28445
+2026-05-14T20:13:18 | path=laser / Position | total=30.6871s
+  monitor | GMD | draw=7.2934s | points=1000/2874806
+  monitor | XGMD | draw=0.1473s | points=998/30220
+  monitor | GDET 241 | draw=0.0032s | points=1/1
+  monitor | GDET 361 | draw=0.0029s | points=1/1
+  pv | BPMS:GUNB:314:FW:X_SLOW | draw=0.0048s | points=1/1
+  pv | BPMS:GUNB:314:FW:Y_SLOW | draw=0.0032s | points=1/1
+  pv | BPMS:IN20:221:XCU1H | draw=0.0709s | points=28445/28445
+  pv | BPMS:IN20:221:YCU1H | draw=0.0666s | points=28445/28445
+2026-05-14T20:13:38 | path=laser | total=7.8640s
+  monitor | GMD | draw=7.4006s | points=1000/2874806
+  monitor | XGMD | draw=0.1413s | points=998/30220
+  monitor | GDET 241 | draw=0.0034s | points=1/1
+  monitor | GDET 361 | draw=0.0030s | points=1/1
+  composite | Charge | draw=0.0054s | points=1/1
+  composite | Position | draw=0.0035s | points=1/1
+  composite | XLEAP | draw=0.0030s | points=1/1
+2026-05-14T20:13:49 | path=All PV Groups | total=8.1765s
+  monitor | GMD | draw=7.5299s | points=1000/2874806
+  monitor | XGMD | draw=0.1662s | points=998/30220
+  monitor | GDET 241 | draw=0.0034s | points=1/1
+  monitor | GDET 361 | draw=0.0031s | points=1/1
+  composite | dispersion_quads | draw=0.0077s | points=1/1
+  composite | laser | draw=0.0033s | points=1/1
+  composite | matching | draw=0.0032s | points=1/1
+  composite | other | draw=0.0033s | points=1/1
+  composite | rf | draw=0.0036s | points=2/2
+2026-05-14T20:14:34 | path=All PV Groups | total=31.7791s
+  monitor | GMD | draw=7.3617s | points=1000/2874806
+  monitor | XGMD | draw=0.1409s | points=998/30220
+  monitor | GDET 241 | draw=0.0033s | points=1/1
+  monitor | GDET 361 | draw=0.0031s | points=1/1
+  composite | dispersion_quads | draw=0.0049s | points=1/1
+  composite | laser | draw=0.0033s | points=1/1
+  composite | matching | draw=0.0032s | points=1/1
+  composite | other | draw=0.0033s | points=1/1
+  composite | rf | draw=0.0034s | points=2/2
+2026-05-14T20:14:43 | path=All PV Groups | total=7.8766s
+  monitor | GMD | draw=7.2757s | points=1000/2874806
+  monitor | XGMD | draw=0.1379s | points=998/30220
+  monitor | GDET 241 | draw=0.0032s | points=1/1
+  monitor | GDET 361 | draw=0.0031s | points=1/1
+  composite | dispersion_quads | draw=0.0050s | points=1/1
+  composite | laser | draw=0.0033s | points=1/1
+  composite | matching | draw=0.0032s | points=1/1
+  composite | other | draw=0.0033s | points=1/1
+  composite | rf | draw=0.0034s | points=2/2
+2026-05-14T20:15:30 | path=All PV Groups | total=2.4661s
+  monitor | GMD | draw=0.2535s | points=367/198883
+  monitor | XGMD | draw=0.0664s | points=366/26185
+  monitor | GDET 241 | draw=0.0486s | points=968/28657
+  monitor | GDET 361 | draw=0.0484s | points=967/28654
+  composite | dispersion_quads | draw=0.0061s | points=20/20
+  composite | laser | draw=0.0087s | points=51/51
+  composite | matching | draw=0.0074s | points=276/276
+  composite | other | draw=0.0035s | points=2/2
+  composite | rf | draw=0.0038s | points=4/4
+2026-05-14T20:15:31 | path=All PV Groups | total=0.8203s
+  monitor | GMD | draw=0.2546s | points=367/198883
+  monitor | XGMD | draw=0.0671s | points=366/26185
+  monitor | GDET 241 | draw=0.0488s | points=968/28657
+  monitor | GDET 361 | draw=0.0491s | points=967/28654
+  composite | dispersion_quads | draw=0.0072s | points=20/20
+  composite | laser | draw=0.0091s | points=51/51
+  composite | matching | draw=0.0062s | points=276/276
+  composite | other | draw=0.0036s | points=2/2
+  composite | rf | draw=0.0038s | points=4/4
+2026-05-14T20:15:41 | path=All PV Groups | total=0.7740s
+  monitor | GMD | draw=0.0027s | points=1/1
+  monitor | XGMD | draw=0.0034s | points=1/1
+  monitor | GDET 241 | draw=0.0392s | points=814/23652
+  monitor | GDET 361 | draw=0.0488s | points=814/23652
+  composite | dispersion_quads | draw=0.0069s | points=3/3
+  composite | laser | draw=0.0048s | points=28/28
+  composite | matching | draw=0.0053s | points=235/235
+  composite | other | draw=0.0038s | points=1/1
+  composite | rf | draw=0.0037s | points=1/1
+2026-05-14T20:15:42 | path=All PV Groups | total=0.4826s
+  monitor | GMD | draw=0.0028s | points=1/1
+  monitor | XGMD | draw=0.0033s | points=1/1
+  monitor | GDET 241 | draw=0.0423s | points=814/23652
+  monitor | GDET 361 | draw=0.0498s | points=814/23652
+  composite | dispersion_quads | draw=0.0060s | points=3/3
+  composite | laser | draw=0.0049s | points=28/28
+  composite | matching | draw=0.0053s | points=235/235
+  composite | other | draw=0.0036s | points=1/1
+  composite | rf | draw=0.0035s | points=1/1
+2026-05-14T20:16:25 | path=matching | total=0.7626s
+  monitor | GMD | draw=0.0029s | points=1/1
+  monitor | XGMD | draw=0.0037s | points=1/1
+  monitor | GDET 241 | draw=0.0443s | points=814/23652
+  monitor | GDET 361 | draw=0.0471s | points=814/23652
+  composite | COL0 | draw=0.0062s | points=1/1
+  composite | COL1 | draw=0.0035s | points=1/1
+  composite | DOG | draw=0.0035s | points=1/1
+  composite | EMIT2 | draw=0.0038s | points=1/1
+  composite | HTR | draw=0.0034s | points=1/1
+  composite | IN20 | draw=0.0041s | points=37/37
+  composite | LI21 | draw=0.0040s | points=50/50
+  composite | LI26 | draw=0.0045s | points=75/75
+  composite | LTUH | draw=0.0042s | points=76/76
+  composite | LTUS | draw=0.0035s | points=1/1
+2026-05-20T11:09:26 | path=All PV Groups | total=0.8954s
+  monitor | GMD | draw=0.0022s | points=1/1
+  monitor | XGMD | draw=0.0027s | points=1/1
+  monitor | GDET 241 | draw=0.0484s | points=1000/30086
+  monitor | GDET 361 | draw=0.0498s | points=1000/30086
+  composite | dispersion_quads | draw=0.0063s | points=111/111
+  composite | laser | draw=0.0029s | points=1/1
+  composite | matching | draw=0.0041s | points=75/75
+  composite | other | draw=0.0027s | points=1/1
+  composite | rf | draw=0.0035s | points=6/6
+2026-05-20T11:09:27 | path=All PV Groups | total=0.5024s
+  monitor | GMD | draw=0.0026s | points=1/1
+  monitor | XGMD | draw=0.0034s | points=1/1
+  monitor | GDET 241 | draw=0.0502s | points=1000/30086
+  monitor | GDET 361 | draw=0.0464s | points=1000/30086
+  composite | dispersion_quads | draw=0.0062s | points=111/111
+  composite | laser | draw=0.0031s | points=1/1
+  composite | matching | draw=0.0043s | points=75/75
+  composite | other | draw=0.0029s | points=1/1
+  composite | rf | draw=0.0035s | points=6/6
+2026-05-20T11:09:28 | path=All PV Groups | total=0.5284s
+  monitor | GMD | draw=0.0021s | points=1/1
+  monitor | XGMD | draw=0.0031s | points=1/1
+  monitor | GDET 241 | draw=0.0463s | points=1000/30086
+  monitor | GDET 361 | draw=0.0436s | points=1000/30086
+  composite | dispersion_quads | draw=0.0055s | points=111/111
+  composite | laser | draw=0.0027s | points=1/1
+  composite | matching | draw=0.0052s | points=75/75
+  composite | other | draw=0.0028s | points=1/1
+  composite | rf | draw=0.0034s | points=6/6
+2026-05-20T11:10:22 | path=All PV Groups | total=31.1953s
+  monitor | GMD | draw=7.1286s | points=996/2815523
+  monitor | XGMD | draw=0.1386s | points=992/30051
+  monitor | GDET 241 | draw=0.0034s | points=1/1
+  monitor | GDET 361 | draw=0.0031s | points=1/1
+  composite | dispersion_quads | draw=0.0049s | points=1/1
+  composite | laser | draw=0.0066s | points=29/29
+  composite | matching | draw=0.0032s | points=1/1
+  composite | other | draw=0.0031s | points=1/1
+  composite | rf | draw=0.0046s | points=15/15
+2026-05-20T11:10:30 | path=All PV Groups | total=7.7163s
+  monitor | GMD | draw=7.1096s | points=996/2815523
+  monitor | XGMD | draw=0.1368s | points=992/30051
+  monitor | GDET 241 | draw=0.0032s | points=1/1
+  monitor | GDET 361 | draw=0.0030s | points=1/1
+  composite | dispersion_quads | draw=0.0049s | points=1/1
+  composite | laser | draw=0.0064s | points=29/29
+  composite | matching | draw=0.0032s | points=1/1
+  composite | other | draw=0.0031s | points=1/1
+  composite | rf | draw=0.0047s | points=15/15
+2026-05-20T11:10:43 | path=All PV Groups | total=7.8316s
+  monitor | GMD | draw=7.2815s | points=996/2815523
+  monitor | XGMD | draw=0.1461s | points=992/30051
+  monitor | GDET 241 | draw=0.0032s | points=1/1
+  monitor | GDET 361 | draw=0.0030s | points=1/1
+  composite | dispersion_quads | draw=0.0048s | points=1/1
+  composite | laser | draw=0.0064s | points=29/29
+  composite | matching | draw=0.0032s | points=1/1
+  composite | other | draw=0.0032s | points=1/1
+  composite | rf | draw=0.0046s | points=15/15
+2026-05-20T11:10:55 | path=laser | total=7.7445s
+  monitor | GMD | draw=7.1989s | points=996/2815523
+  monitor | XGMD | draw=0.1356s | points=992/30051
+  monitor | GDET 241 | draw=0.0032s | points=1/1
+  monitor | GDET 361 | draw=0.0028s | points=1/1
+  composite | Charge | draw=0.0044s | points=1/1
+  composite | Position | draw=0.0064s | points=29/29
+  composite | XLEAP | draw=0.0031s | points=1/1
+2026-05-20T11:11:03 | path=laser / Charge | total=7.6741s
+  monitor | GMD | draw=7.2198s | points=996/2815523
+  monitor | XGMD | draw=0.1365s | points=992/30051
+  monitor | GDET 241 | draw=0.0030s | points=1/1
+  monitor | GDET 361 | draw=0.0028s | points=1/1
+  pv | TPG:SYS0:1:BUNCH_CHARGE_RBV | draw=0.0057s | points=1/1
+  pv | FBCK:BCI0:1:CHRGSP | draw=0.0002s | points=0/0
+2026-05-20T11:11:03 | path=laser / Charge / [monitor] GDET 241 | total=0.0663s
+  monitor | GDET 241 | draw=0.0023s | points=1/1
+2026-05-20T11:11:17 | path=laser | total=8.0142s
+  monitor | GMD | draw=7.5728s | points=996/2815523
+  monitor | XGMD | draw=0.1311s | points=992/30051
+  monitor | GDET 241 | draw=0.0028s | points=1/1
+  monitor | GDET 361 | draw=0.0026s | points=1/1
+  composite | Charge | draw=0.0044s | points=1/1
+  composite | Position | draw=0.0060s | points=29/29
+  composite | XLEAP | draw=0.0028s | points=1/1
+2026-05-20T11:11:29 | path=laser / Position | total=8.6327s
+  monitor | GMD | draw=7.7773s | points=996/2815523
+  monitor | XGMD | draw=0.1400s | points=992/30051
+  monitor | GDET 241 | draw=0.0030s | points=1/1
+  monitor | GDET 361 | draw=0.0029s | points=1/1
+  pv | BPMS:GUNB:314:FW:X_SLOW | draw=0.0052s | points=1/1
+  pv | BPMS:GUNB:314:FW:Y_SLOW | draw=0.0030s | points=1/1
+  pv | BPMS:IN20:221:XCU1H | draw=0.0662s | points=27706/27706
+  pv | BPMS:IN20:221:YCU1H | draw=0.0611s | points=27706/27706
+2026-05-20T11:11:33 | path=laser / Position / BPMS:IN20:221:XCU1H | total=0.2113s
+  pv | BPMS:IN20:221:XCU1H | draw=0.0691s | points=27706/27706
+2026-05-20T11:11:38 | path=laser / Position / BPMS:IN20:221:XCU1H | total=0.2133s
+  pv | BPMS:IN20:221:XCU1H | draw=0.0716s | points=27706/27706
+2026-05-20T11:11:43 | path=laser / Position / BPMS:IN20:221:XCU1H | total=0.2262s
+  pv | BPMS:IN20:221:XCU1H | draw=0.0694s | points=27706/27706
+2026-05-20T11:11:44 | path=laser / Position / BPMS:IN20:221:XCU1H | total=0.2227s
+  pv | BPMS:IN20:221:XCU1H | draw=0.0754s | points=27706/27706
+2026-05-20T11:12:01 | path=laser / Position / BPMS:IN20:221:XCU1H | total=0.2076s
+  pv | BPMS:IN20:221:XCU1H | draw=0.0653s | points=27706/27706
+2026-05-20T11:12:17 | path=laser / Position / BPMS:IN20:221:XCU1H | total=0.1972s
+  pv | BPMS:IN20:221:XCU1H | draw=0.0619s | points=27706/27706
+2026-05-20T11:12:28 | path=laser | total=7.8277s
+  monitor | GMD | draw=7.3620s | points=996/2815523
+  monitor | XGMD | draw=0.1428s | points=992/30051
+  monitor | GDET 241 | draw=0.0033s | points=1/1
+  monitor | GDET 361 | draw=0.0029s | points=1/1
+  composite | Charge | draw=0.0046s | points=1/1
+  composite | Position | draw=0.0066s | points=29/29
+  composite | XLEAP | draw=0.0031s | points=1/1
+2026-05-20T11:12:50 | path=laser | total=7.9112s
+  monitor | GMD | draw=7.3872s | points=996/2815523
+  monitor | XGMD | draw=0.1212s | points=992/30051
+  monitor | GDET 241 | draw=0.0028s | points=1/1
+  monitor | GDET 361 | draw=0.0026s | points=1/1
+  composite | Charge | draw=0.0040s | points=1/1
+  composite | Position | draw=0.0053s | points=29/29
+  composite | XLEAP | draw=0.0027s | points=1/1
+2026-05-20T11:14:04 | path=laser / Position | total=8.0851s
+  monitor | GMD | draw=7.3216s | points=996/2815523
+  monitor | XGMD | draw=0.1372s | points=992/30051
+  monitor | GDET 241 | draw=0.0031s | points=1/1
+  monitor | GDET 361 | draw=0.0029s | points=1/1
+  pv | BPMS:GUNB:314:FW:X_SLOW | draw=0.0049s | points=1/1
+  pv | BPMS:GUNB:314:FW:Y_SLOW | draw=0.0029s | points=1/1
+  pv | BPMS:IN20:221:XCU1H | draw=0.0690s | points=27706/27706
+  pv | BPMS:IN20:221:YCU1H | draw=0.0660s | points=27706/27706
+2026-05-20T11:14:15 | path=All PV Groups | total=7.8595s
+  monitor | GMD | draw=7.3109s | points=996/2815523
+  monitor | XGMD | draw=0.1432s | points=992/30051
+  monitor | GDET 241 | draw=0.0037s | points=1/1
+  monitor | GDET 361 | draw=0.0031s | points=1/1
+  composite | dispersion_quads | draw=0.0057s | points=1/1
+  composite | laser | draw=0.0066s | points=29/29
+  composite | matching | draw=0.0032s | points=1/1
+  composite | other | draw=0.0031s | points=1/1
+  composite | rf | draw=0.0047s | points=15/15
+2026-05-20T11:14:55 | path=All PV Groups | total=8.1401s
+  monitor | GMD | draw=7.5007s | points=996/2815523
+  monitor | XGMD | draw=0.1422s | points=992/30051
+  monitor | GDET 241 | draw=0.0033s | points=1/1
+  monitor | GDET 361 | draw=0.0030s | points=1/1
+  composite | dispersion_quads | draw=0.0052s | points=1/1
+  composite | laser | draw=0.0066s | points=29/29
+  composite | matching | draw=0.0032s | points=1/1
+  composite | other | draw=0.0032s | points=1/1
+  composite | rf | draw=0.0048s | points=15/15
+2026-05-20T11:20:22 | path=All PV Groups | total=119.6542s
+  monitor | GMD | draw=34.2798s | points=990/8256621
+  monitor | XGMD | draw=0.2128s | points=989/88704
+  monitor | GDET 241 | draw=0.0059s | points=430/430
+  monitor | GDET 361 | draw=0.0055s | points=430/430
+  composite | dispersion_quads | draw=0.0086s | points=810/810
+  composite | laser | draw=0.0088s | points=85/85
+  composite | matching | draw=0.0059s | points=395/395
+  composite | other | draw=0.0040s | points=22/22
+  composite | rf | draw=0.0056s | points=54/54
+2026-05-20T11:20:58 | path=All PV Groups | total=35.0362s
+  monitor | GMD | draw=34.2765s | points=990/8256621
+  monitor | XGMD | draw=0.2170s | points=989/88704
+  monitor | GDET 241 | draw=0.0057s | points=430/430
+  monitor | GDET 361 | draw=0.0054s | points=430/430
+  composite | dispersion_quads | draw=0.0097s | points=810/810
+  composite | laser | draw=0.0144s | points=85/85
+  composite | matching | draw=0.0059s | points=395/395
+  composite | other | draw=0.0039s | points=22/22
+  composite | rf | draw=0.0054s | points=54/54
+2026-05-20T11:21:48 | path=All PV Groups | total=36.2200s
+  monitor | GMD | draw=35.5652s | points=990/8256621
+  monitor | XGMD | draw=0.2189s | points=989/88704
+  monitor | GDET 241 | draw=0.0068s | points=430/430
+  monitor | GDET 361 | draw=0.0066s | points=430/430
+  composite | dispersion_quads | draw=0.0087s | points=810/810
+  composite | laser | draw=0.0089s | points=85/85
+  composite | matching | draw=0.0062s | points=395/395
+  composite | other | draw=0.0041s | points=22/22
+  composite | rf | draw=0.0056s | points=54/54
+2026-05-20T11:22:25 | path=All PV Groups | total=36.3962s
+  monitor | GMD | draw=35.7004s | points=990/8256621
+  monitor | XGMD | draw=0.2169s | points=989/88704
+  composite | dispersion_quads | draw=0.0082s | points=810/810
+  composite | laser | draw=0.0092s | points=85/85
+  composite | matching | draw=0.0058s | points=395/395
+  composite | other | draw=0.0040s | points=22/22
+  composite | rf | draw=0.0061s | points=54/54
+2026-05-20T11:23:01 | path=All PV Groups | total=35.5965s
+  monitor | GMD | draw=34.9095s | points=990/8256621
+  monitor | XGMD | draw=0.2337s | points=989/88704
+  monitor | GDET 241 | draw=0.0060s | points=430/430
+  monitor | GDET 361 | draw=0.0054s | points=430/430
+  composite | dispersion_quads | draw=0.0084s | points=810/810
+  composite | laser | draw=0.0087s | points=85/85
+  composite | matching | draw=0.0068s | points=395/395
+  composite | other | draw=0.0040s | points=22/22
+  composite | rf | draw=0.0055s | points=54/54
+2026-05-20T11:23:39 | path=All PV Groups | total=35.2320s
+  monitor | GMD | draw=34.6389s | points=990/8256621
+  monitor | XGMD | draw=0.2371s | points=989/88704
+  composite | dispersion_quads | draw=0.0082s | points=810/810
+  composite | laser | draw=0.0098s | points=85/85
+  composite | matching | draw=0.0060s | points=395/395
+  composite | other | draw=0.0041s | points=22/22
+  composite | rf | draw=0.0053s | points=54/54
+2026-05-20T11:26:22 | path=laser | total=35.1071s
+  monitor | GMD | draw=34.5502s | points=990/8256621
+  monitor | XGMD | draw=0.2097s | points=989/88704
+  composite | Charge | draw=0.0042s | points=1/1
+  composite | Position | draw=0.0078s | points=45/45
+  composite | XLEAP | draw=0.0039s | points=41/41
+2026-05-20T11:27:30 | path=laser / Position | total=35.8208s
+  monitor | GMD | draw=34.6615s | points=990/8256621
+  monitor | XGMD | draw=0.2074s | points=989/88704
+  pv | BPMS:IN20:221:XCU1H | draw=0.1961s | points=83781/83781
+  pv | BPMS:IN20:221:YCU1H | draw=0.1887s | points=83779/83779
+2026-05-20T11:28:42 | path=laser / Position | total=36.1652s
+  monitor | GMD | draw=34.8961s | points=990/8256621
+  monitor | XGMD | draw=0.2179s | points=989/88704
+  pv | BPMS:IN20:221:XCU1H | draw=0.2124s | points=83781/83781
+  pv | BPMS:IN20:221:YCU1H | draw=0.1982s | points=83779/83779
+2026-05-20T11:31:54 | path=laser / Position / BPMS:IN20:221:XCU1H | total=0.4896s
+  pv | BPMS:IN20:221:XCU1H | draw=0.2052s | points=83781/83781
+2026-05-20T11:32:23 | path=laser / Position / BPMS:IN20:221:XCU1H | total=0.4029s
+  pv | BPMS:IN20:221:XCU1H | draw=0.1782s | points=83781/83781
+2026-05-20T11:32:27 | path=laser / Position / BPMS:IN20:221:XCU1H | total=0.4523s
+  pv | BPMS:IN20:221:XCU1H | draw=0.1850s | points=83781/83781
+2026-05-20T11:32:43 | path=laser / Position / BPMS:IN20:221:XCU1H | total=0.4677s
+  pv | BPMS:IN20:221:XCU1H | draw=0.2273s | points=83781/83781
+2026-05-20T11:33:46 | path=laser / Position / BPMS:IN20:221:XCU1H | total=0.4528s
+  pv | BPMS:IN20:221:XCU1H | draw=0.1846s | points=83781/83781
+2026-05-20T11:34:36 | path=laser / Position / BPMS:IN20:221:XCU1H | total=0.5315s
+  pv | BPMS:IN20:221:XCU1H | draw=0.1873s | points=83781/83781
+2026-05-20T11:38:55 | path=All PV Groups | total=34.7494s
+  monitor | GMD | draw=34.2168s | points=990/8256621
+  monitor | XGMD | draw=0.2092s | points=989/88704
+  composite | dispersion_quads | draw=0.0080s | points=810/810
+  composite | laser | draw=0.0087s | points=85/85
+  composite | matching | draw=0.0055s | points=395/395
+  composite | other | draw=0.0039s | points=22/22
+  composite | rf | draw=0.0052s | points=54/54
+2026-05-21T14:38:34 | path=All PV Groups | total=16.1298s
+  monitor | GMD | draw=3.1353s | points=922/1574440
+  monitor | XGMD | draw=0.1320s | points=920/27847
+  monitor | GDET 241 | draw=0.0492s | points=1000/29788
+  monitor | GDET 361 | draw=0.0497s | points=1000/29788
+  composite | dispersion_quads | draw=0.0083s | points=261/261
+  composite | laser | draw=0.0051s | points=46/46
+  composite | matching | draw=0.0075s | points=907/907
+  composite | other | draw=0.0039s | points=26/26
+  composite | rf | draw=0.0054s | points=9/9

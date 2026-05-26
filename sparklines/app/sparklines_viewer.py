@@ -81,6 +81,7 @@ class HierarchySparklineViewer:
         self._figure_text_artists = []
         self._controls_canvas_size = None
         self._handling_resize = False
+        self._pending_pick_timer = None
 
     def _normalize_beam_paths(self, beam_paths) -> tuple[str, ...]:
         if beam_paths is None:
@@ -664,6 +665,37 @@ class HierarchySparklineViewer:
             return
         self.draw()
 
+    def _defer_pick_action(self, event, action):
+        if getattr(event, "mouseevent", None) is None:
+            action()
+            return
+
+        canvas = getattr(self.fig, "canvas", None) if self.fig is not None else None
+        new_timer = getattr(canvas, "new_timer", None)
+        if not callable(new_timer):
+            action()
+            return
+
+        if self._pending_pick_timer is not None:
+            try:
+                self._pending_pick_timer.stop()
+            except Exception:
+                pass
+
+        timer = new_timer(interval=0)
+
+        def _run_action():
+            try:
+                action()
+            finally:
+                if self._pending_pick_timer is timer:
+                    self._pending_pick_timer = None
+            return False
+
+        timer.add_callback(_run_action)
+        self._pending_pick_timer = timer
+        timer.start()
+
     def _draw_controls(self):
         if self.fig is None:
             return
@@ -763,6 +795,13 @@ class HierarchySparklineViewer:
                 except Exception:
                     pass
                 setattr(self, attr, None)
+
+        if self._pending_pick_timer is not None:
+            try:
+                self._pending_pick_timer.stop()
+            except Exception:
+                pass
+            self._pending_pick_timer = None
 
         self._teardown_controls()
         self._clear_dynamic_layout()
@@ -1171,14 +1210,22 @@ class HierarchySparklineViewer:
 
         breadcrumb_target = self.breadcrumb_targets.get(event.artist)
         if breadcrumb_target is not None:
-            self._capture_view_limits()
-            self._pending_filter_ylims = None
-            self.focused_monitor_label = None
-            self.path = list(breadcrumb_target)
-            self.draw()
+            def _navigate_breadcrumb():
+                self._capture_view_limits()
+                self._pending_filter_ylims = None
+                self.focused_monitor_label = None
+                self.path = list(breadcrumb_target)
+                self.draw()
+
+            self._defer_pick_action(event, _navigate_breadcrumb)
             return
 
-        self._navigate_to_item(self.label_targets.get(event.artist))
+        target_item = self.label_targets.get(event.artist)
+        if target_item is not None:
+            self._defer_pick_action(
+                event,
+                lambda target=target_item: self._navigate_to_item(target),
+            )
 
     def back(self):
         if self.focused_monitor_label is not None:

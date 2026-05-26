@@ -409,6 +409,48 @@ class HierarchySparklineViewerUiTests(unittest.TestCase):
         for value in row_ys[1:]:
             self.assertAlmostEqual(value, row_ys[0], places=3)
 
+    def test_real_pick_event_defers_navigation_until_after_pick_traversal(self):
+        class _ManualTimer:
+            def __init__(self):
+                self.callbacks = []
+                self.started = False
+                self.stopped = False
+
+            def add_callback(self, callback):
+                self.callbacks.append(callback)
+
+            def start(self):
+                self.started = True
+
+            def stop(self):
+                self.stopped = True
+
+            def fire(self):
+                for callback in list(self.callbacks):
+                    callback()
+
+        self.viewer.path = ["Group A"]
+        self.viewer.draw()
+        self.viewer.fig.canvas.draw()
+        artist = next(
+            artist
+            for artist, target in self.viewer.breadcrumb_targets.items()
+            if target == []
+        )
+        timer = _ManualTimer()
+        original_new_timer = self.viewer.fig.canvas.new_timer
+        self.viewer.fig.canvas.new_timer = lambda interval=0: timer
+        try:
+            self.viewer._on_pick(SimpleNamespace(artist=artist, mouseevent=object()))
+            self.assertEqual(self.viewer.path, ["Group A"])
+            self.assertTrue(timer.started)
+
+            timer.fire()
+            self.assertEqual(self.viewer.path, [])
+            self.assertIsNone(self.viewer._pending_pick_timer)
+        finally:
+            self.viewer.fig.canvas.new_timer = original_new_timer
+
     def test_beam_path_filter_checkboxes_default_to_all_checked(self):
         self.assertEqual(self.viewer.beamline_filter_checkbox.actives, [True, True])
         self.assertEqual(self.viewer.accelerator_filter_checkbox.actives, [True, True])
