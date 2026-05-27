@@ -78,6 +78,32 @@ def viewer_shortcuts() -> list[tuple[str, str]]:
     ]
 
 
+def canvas_help_items() -> list[tuple[str, str]]:
+    """Return canvas guidance moved out of the plot header."""
+    return [
+        (
+            "All PV groups",
+            "Click a plot or blue y-label to descend. Use the Beam_Path "
+            "checkboxes to filter the current view.",
+        ),
+        (
+            "PV group",
+            "Click a PV plot, trace, legend label, or monitor plot to isolate "
+            "a single PV. Use Show data points and Beam_Path filters to "
+            "refine the view.",
+        ),
+        (
+            "Single PV",
+            "Use Show data points, Beam_Path filters, or the breadcrumb path "
+            "to navigate.",
+        ),
+        (
+            "No matching data",
+            "Use the Beam_Path checkboxes to expand or narrow the current view.",
+        ),
+    ]
+
+
 def parse_datetime_text(value: str) -> dt.datetime:
     """Parse an ISO-like datetime string into a naive local datetime."""
     text = value.strip()
@@ -153,16 +179,16 @@ class HierarchyLoadWorker(QtCore.QObject):
 
 
 class SparklineHelpDialog(QtWidgets.QDialog):
-    """Qt help dialog for sparkline keyboard shortcuts."""
+    """Qt help dialog for sparkline usage and keyboard shortcuts."""
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.setWindowTitle("MEME Sparklines Help")
-        self.resize(720, 420)
+        self.resize(760, 520)
 
         layout = QtWidgets.QVBoxLayout(self)
 
-        title = QtWidgets.QLabel("Keyboard Shortcuts")
+        title = QtWidgets.QLabel("MEME Sparklines Help")
         title.setStyleSheet("QLabel { font-size: 18px; font-weight: 600; }")
         title.setAlignment(QtCore.Qt.AlignCenter)
         layout.addWidget(title)
@@ -174,17 +200,24 @@ class SparklineHelpDialog(QtWidgets.QDialog):
         subtitle.setAlignment(QtCore.Qt.AlignCenter)
         layout.addWidget(subtitle)
 
-        toolbar_group = QtWidgets.QGroupBox("Toolbar")
-        toolbar_layout = QtWidgets.QVBoxLayout(toolbar_group)
-        self.toolbar_table = self._build_shortcut_table()
-        toolbar_layout.addWidget(self.toolbar_table)
-        layout.addWidget(toolbar_group, 1)
+        scroll_area = QtWidgets.QScrollArea(self)
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QtWidgets.QFrame.NoFrame)
+        layout.addWidget(scroll_area, 1)
 
-        viewer_group = QtWidgets.QGroupBox("Viewer")
-        viewer_layout = QtWidgets.QVBoxLayout(viewer_group)
-        self.viewer_table = self._build_shortcut_table()
-        viewer_layout.addWidget(self.viewer_table)
-        layout.addWidget(viewer_group, 1)
+        contents = QtWidgets.QWidget(scroll_area)
+        contents_layout = QtWidgets.QVBoxLayout(contents)
+        contents_layout.setContentsMargins(0, 0, 0, 0)
+        contents_layout.setSpacing(10)
+        scroll_area.setWidget(contents)
+
+        self.canvas_layout = self._add_help_section(
+            contents_layout,
+            "Canvas Navigation",
+        )
+        self.toolbar_layout = self._add_help_section(contents_layout, "Toolbar")
+        self.viewer_layout = self._add_help_section(contents_layout, "Viewer")
+        contents_layout.addStretch(1)
 
         self.source_label = QtWidgets.QLabel("")
         self.source_label.setStyleSheet("QLabel { color: #666; }")
@@ -197,48 +230,45 @@ class SparklineHelpDialog(QtWidgets.QDialog):
 
         self.refresh_contents()
 
-    def _build_shortcut_table(self) -> QtWidgets.QTableWidget:
-        table = QtWidgets.QTableWidget(0, 2, self)
-        table.setHorizontalHeaderLabels(["Action", "Shortcut"])
-        table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
-        table.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
-        table.setFocusPolicy(QtCore.Qt.NoFocus)
-        table.setAlternatingRowColors(False)
-        table.setShowGrid(False)
-        table.setWordWrap(True)
-        table.verticalHeader().setVisible(False)
-        table.horizontalHeader().setStretchLastSection(True)
-        table.horizontalHeader().setSectionResizeMode(
-            0, QtWidgets.QHeaderView.ResizeToContents
-        )
-        table.horizontalHeader().setSectionResizeMode(
-            1, QtWidgets.QHeaderView.Stretch
-        )
-        table.setStyleSheet(
-            "QTableWidget { background: transparent; border: none; }"
-            "QHeaderView::section { background: transparent; border: none; "
-            "font-weight: 600; padding: 2px 6px; }"
-            "QTableWidget::item { padding: 4px 6px; }"
-        )
-        return table
+    def _add_help_section(
+        self,
+        parent_layout: QtWidgets.QVBoxLayout,
+        title: str,
+    ) -> QtWidgets.QGridLayout:
+        group = QtWidgets.QGroupBox(title)
+        group_layout = QtWidgets.QGridLayout(group)
+        group_layout.setColumnStretch(1, 1)
+        group_layout.setHorizontalSpacing(16)
+        group_layout.setVerticalSpacing(6)
+        parent_layout.addWidget(group)
+        return group_layout
 
-    def _populate_shortcut_table(
-        self, table: QtWidgets.QTableWidget, shortcuts: list[tuple[str, str]]
+    def _populate_help_rows(
+        self, layout: QtWidgets.QGridLayout, items: list[tuple[str, str]]
     ) -> None:
-        table.setRowCount(len(shortcuts))
-        for row, (action, shortcut) in enumerate(shortcuts):
-            action_item = QtWidgets.QTableWidgetItem(action)
-            shortcut_item = QtWidgets.QTableWidgetItem(shortcut)
-            action_item.setFlags(QtCore.Qt.ItemIsEnabled)
-            shortcut_item.setFlags(QtCore.Qt.ItemIsEnabled)
-            table.setItem(row, 0, action_item)
-            table.setItem(row, 1, shortcut_item)
-        table.resizeRowsToContents()
+        while layout.count():
+            item = layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+
+        for row, (label_text, value_text) in enumerate(items):
+            label = QtWidgets.QLabel(label_text)
+            label.setStyleSheet("QLabel { font-weight: 600; }")
+            label.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
+
+            value = QtWidgets.QLabel(value_text)
+            value.setWordWrap(True)
+            value.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
+
+            layout.addWidget(label, row, 0)
+            layout.addWidget(value, row, 1)
 
     def refresh_contents(self) -> None:
         rc_path, toolbar_items = toolbar_shortcuts()
-        self._populate_shortcut_table(self.toolbar_table, toolbar_items)
-        self._populate_shortcut_table(self.viewer_table, viewer_shortcuts())
+        self._populate_help_rows(self.canvas_layout, canvas_help_items())
+        self._populate_help_rows(self.toolbar_layout, toolbar_items)
+        self._populate_help_rows(self.viewer_layout, viewer_shortcuts())
         self.source_label.setText(f"Source: {rc_path}")
 
 
@@ -289,24 +319,21 @@ class SparklineMainWindow(QtWidgets.QMainWindow):
         self.help_button = QtWidgets.QPushButton("Help")
         self.help_button.clicked.connect(self.show_help_dialog)
         top_bar.addWidget(self.help_button)
-        top_bar.addStretch(1)
-        self.legacy_elog_button = QtWidgets.QPushButton("Upload to LCLS Elog")
+        self.legacy_elog_button = QtWidgets.QPushButton("LCLS Elog")
         self.legacy_elog_button.setStyleSheet(
             "QPushButton { background-color: rgb(85, 255, 255); font-weight: 600; }"
         )
         self.legacy_elog_button.clicked.connect(
             lambda: self.upload_canvas_to_elog(DEFAULT_LEGACY_ELOGBOOK)
         )
-        top_bar.addWidget(self.legacy_elog_button)
 
-        self.elog_button = QtWidgets.QPushButton("Upload to LCLS-II Elog")
+        self.elog_button = QtWidgets.QPushButton("LCLS-II Elog")
         self.elog_button.setStyleSheet(
             "QPushButton { background-color: rgb(85, 255, 255); font-weight: 600; }"
         )
         self.elog_button.clicked.connect(
             lambda: self.upload_canvas_to_elog(DEFAULT_ELOGBOOK)
         )
-        top_bar.addWidget(self.elog_button)
 
         controls = QtWidgets.QHBoxLayout()
         controls.setSpacing(8)
@@ -318,8 +345,17 @@ class SparklineMainWindow(QtWidgets.QMainWindow):
         self.reload_button = QtWidgets.QPushButton("Reload")
         self.status_label = QtWidgets.QLabel("Idle")
         self.summary_label = QtWidgets.QLabel("")
-        self.summary_label.setWordWrap(True)
+        self.summary_label.setWordWrap(False)
+        self.summary_label.setMinimumWidth(0)
+        self.summary_label.setSizePolicy(
+            QtWidgets.QSizePolicy.Ignored,
+            QtWidgets.QSizePolicy.Preferred,
+        )
 
+        top_bar.addWidget(self.status_label)
+        top_bar.addWidget(self.summary_label, 1)
+        top_bar.addWidget(self.legacy_elog_button)
+        top_bar.addWidget(self.elog_button)
         controls.addWidget(QtWidgets.QLabel("Start"))
         controls.addWidget(self.start_edit, 1)
         controls.addWidget(QtWidgets.QLabel("End"))
@@ -328,8 +364,6 @@ class SparklineMainWindow(QtWidgets.QMainWindow):
 
         layout.addLayout(top_bar)
         layout.addLayout(controls)
-        layout.addWidget(self.status_label)
-        layout.addWidget(self.summary_label)
 
         self.canvas = FigureCanvasQTAgg(Figure(figsize=(12, 8), dpi=100))
         self.toolbar = NavigationToolbar(self.canvas, self)

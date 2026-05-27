@@ -40,6 +40,35 @@ except ImportError:  # pragma: no cover - notebook/script fallback
     )
 
 
+class _CheckboxRowGroup:
+    """Small adapter for a row of one-item matplotlib CheckButtons."""
+
+    def __init__(self, ax, widgets):
+        self.ax = ax
+        self.widgets = tuple(widgets)
+        self.axes = (ax,) + tuple(widget.ax for widget in self.widgets)
+
+    @property
+    def actives(self):
+        actives = []
+        for widget in self.widgets:
+            get_status = getattr(widget, "get_status", None)
+            if callable(get_status):
+                actives.append(bool(get_status()[0]))
+            else:
+                actives.append(bool(widget.actives[0]))
+        return actives
+
+    def set_active(self, index):
+        self.widgets[index].set_active(0)
+
+    def disconnect_events(self):
+        for widget in self.widgets:
+            disconnect = getattr(widget, "disconnect_events", None)
+            if callable(disconnect):
+                disconnect()
+
+
 class HierarchySparklineViewer:
     """Interactive sparkline viewer with click-to-drill hierarchy navigation."""
 
@@ -724,10 +753,10 @@ class HierarchySparklineViewer:
         self.show_points_checkbox = None
         self.beamline_filter_checkbox = None
         self.accelerator_filter_checkbox = None
-        row_y = 0.835
-        row_height = 0.06
-        widths = [0.20, 0.11, 0.10]
-        gap = 0.03
+        row_y = 0.885
+        row_height = 0.035
+        widths = [0.18, 0.055, 0.055, 0.045, 0.045]
+        gap = 0.02
         row_width = sum(widths) + gap * (len(widths) - 1)
         row_x = 0.5 - row_width / 2
 
@@ -738,27 +767,58 @@ class HierarchySparklineViewer:
         )
         self.show_points_checkbox.on_clicked(self._on_toggle_show_data_points)
 
+        beamline_group_x = row_x + widths[0] + gap
+        beamline_group_width = widths[1] + widths[2] + gap
+        beamline_group_ax = self.fig.add_axes(
+            [beamline_group_x, row_y, beamline_group_width, row_height]
+        )
+        beamline_group_ax.set_axis_off()
+        beamline_group_ax.set_frame_on(False)
+
         beamline_ax = self.fig.add_axes(
-            [row_x + widths[0] + gap, row_y, widths[1], row_height]
+            [beamline_group_x, row_y, widths[1], row_height]
         )
         beamline_ax.set_frame_on(False)
-        self.beamline_filter_checkbox = CheckButtons(
-            beamline_ax,
-            ["SXR", "HXR"],
-            [self.filter_sxr, self.filter_hxr],
-        )
-        self.beamline_filter_checkbox.on_clicked(self._on_toggle_beamline_filter)
+        sxr_checkbox = CheckButtons(beamline_ax, ["SXR"], [self.filter_sxr])
+        sxr_checkbox.on_clicked(self._on_toggle_beamline_filter)
 
+        hxr_ax = self.fig.add_axes(
+            [beamline_group_x + widths[1] + gap, row_y, widths[2], row_height]
+        )
+        hxr_ax.set_frame_on(False)
+        hxr_checkbox = CheckButtons(hxr_ax, ["HXR"], [self.filter_hxr])
+        hxr_checkbox.on_clicked(self._on_toggle_beamline_filter)
+
+        self.beamline_filter_checkbox = _CheckboxRowGroup(
+            beamline_group_ax,
+            (sxr_checkbox, hxr_checkbox),
+        )
+
+        accelerator_group_x = beamline_group_x + beamline_group_width + gap
+        accelerator_group_width = widths[3] + widths[4] + gap
+        accelerator_group_ax = self.fig.add_axes(
+            [accelerator_group_x, row_y, accelerator_group_width, row_height]
+        )
+        accelerator_group_ax.set_axis_off()
+        accelerator_group_ax.set_frame_on(False)
         accelerator_ax = self.fig.add_axes(
-            [row_x + widths[0] + widths[1] + 2 * gap, row_y, widths[2], row_height]
+            [accelerator_group_x, row_y, widths[3], row_height]
         )
         accelerator_ax.set_frame_on(False)
-        self.accelerator_filter_checkbox = CheckButtons(
-            accelerator_ax,
-            ["Cu", "SC"],
-            [self.filter_cu, self.filter_sc],
+        cu_checkbox = CheckButtons(accelerator_ax, ["Cu"], [self.filter_cu])
+        cu_checkbox.on_clicked(self._on_toggle_accelerator_filter)
+
+        sc_ax = self.fig.add_axes(
+            [accelerator_group_x + widths[3] + gap, row_y, widths[4], row_height]
         )
-        self.accelerator_filter_checkbox.on_clicked(self._on_toggle_accelerator_filter)
+        sc_ax.set_frame_on(False)
+        sc_checkbox = CheckButtons(sc_ax, ["SC"], [self.filter_sc])
+        sc_checkbox.on_clicked(self._on_toggle_accelerator_filter)
+
+        self.accelerator_filter_checkbox = _CheckboxRowGroup(
+            accelerator_group_ax,
+            (cu_checkbox, sc_checkbox),
+        )
         self._controls_canvas_size = current_canvas_size
 
     def _schedule_draw(self):
@@ -779,8 +839,12 @@ class HierarchySparklineViewer:
                     disconnect()
                 except Exception:
                     pass
-            widget_ax = getattr(widget, "ax", None)
-            if widget_ax is not None:
+            widget_axes = getattr(widget, "axes", None)
+            if widget_axes is None:
+                widget_axes = (getattr(widget, "ax", None),)
+            for widget_ax in widget_axes:
+                if widget_ax is None:
+                    continue
                 try:
                     widget_ax.remove()
                 except Exception:
@@ -919,20 +983,13 @@ class HierarchySparklineViewer:
             self.label_targets = {}
             self.axis_targets = {}
             self.breadcrumb_targets = {}
-            self.fig.subplots_adjust(top=0.78)
+            self.fig.subplots_adjust(top=0.885)
             self._draw_breadcrumbs()
             self._add_figure_text(
                 0.5,
                 0.50,
                 "No PVs or groups match your selected filters.",
                 fontsize=10,
-                ha="center",
-            )
-            self._add_figure_text(
-                0.5,
-                0.90,
-                "Use the Beam_Path checkboxes to expand or narrow the current view.",
-                fontsize=9,
                 ha="center",
             )
             self._install_toolbar_home_hook()
@@ -1171,30 +1228,8 @@ class HierarchySparklineViewer:
         self._pending_filter_ylims = None
         rotate_labels = self._apply_time_tick_label_layout(axes[-1])
 
-        self.fig.subplots_adjust(top=0.78, bottom=0.16 if rotate_labels else 0.12)
+        self.fig.subplots_adjust(top=0.885, bottom=0.16 if rotate_labels else 0.12)
         self._draw_breadcrumbs()
-        if self.focused_monitor_label is not None or len(self.path) >= 3:
-            instruction = (
-                "Single-PV view. Use Show data points, Beam_Path filters, or the "
-                "breadcrumb path to navigate."
-            )
-        elif len(self.path) < 2:
-            instruction = (
-                "Click a plot or blue y-label to descend. Use the Beam_Path "
-                "checkboxes to filter the current view."
-            )
-        elif len(self.path) == 2:
-            instruction = (
-                "Click a PV plot, trace, legend label, or monitor plot to isolate "
-                "a single PV. Use Show data points and Beam_Path filters to "
-                "refine the view."
-            )
-        else:
-            instruction = (
-                "Single-PV view. Use Show data points, Beam_Path filters, or the "
-                "breadcrumb path to navigate."
-            )
-        self._add_figure_text(0.5, 0.90, instruction, fontsize=9, ha="center")
 
         self._install_toolbar_home_hook()
         self._connect_limit_callbacks(axes)
@@ -1231,11 +1266,16 @@ class HierarchySparklineViewer:
         if event.button != 1 or event.inaxes is None:
             return
         control_axes = [
-            getattr(getattr(self, attr, None), "ax", None)
+            axis
             for attr in (
                 "show_points_checkbox",
                 "beamline_filter_checkbox",
                 "accelerator_filter_checkbox",
+            )
+            for axis in getattr(
+                getattr(self, attr, None),
+                "axes",
+                (getattr(getattr(self, attr, None), "ax", None),),
             )
         ]
         if event.inaxes in control_axes:
