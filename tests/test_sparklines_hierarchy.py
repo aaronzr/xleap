@@ -220,11 +220,11 @@ monitor_pvs:
             np.asarray([0.0, 0.5, 0.7, 0.02]),
         )
 
-    def test_measurement_pvs_are_compressed_before_mixed_group_composite(self):
+    def test_continuous_pvs_use_median_setpoint_and_deadband_in_composite(self):
         pv_groups = {
             "groups": [
                 {
-                    "group_name": "mixed",
+                    "group_name": "continuous",
                     "subgroups": {
                         "sub": {
                             "pv": [
@@ -233,7 +233,6 @@ monitor_pvs:
                                     "measurement": True,
                                     "deadband": 0.1,
                                 },
-                                {"pv_name": "PV:CTRL"},
                             ],
                         },
                     },
@@ -246,7 +245,6 @@ monitor_pvs:
                 "PV:MEAS",
                 [0.0, 0.01, 0.02, 0.5, 0.4, 0.7, 0.02],
             ),
-            "PV:CTRL": _archive_series("PV:CTRL", [1.0] * 7),
         }
 
         with mock.patch.object(
@@ -261,10 +259,20 @@ monitor_pvs:
                 monitor_specs={},
             )
 
-        composite = hierarchy["groups"]["mixed"]["subgroups"]["sub"]["composite"]
+        composite = hierarchy["groups"]["continuous"]["subgroups"]["sub"]["composite"]
         np.testing.assert_array_equal(
             composite["secondsPastEpoch"],
-            archive["PV:MEAS"]["secondsPastEpoch"][[0, 3, 5, 6]],
+            archive["PV:MEAS"]["secondsPastEpoch"],
+        )
+        np.testing.assert_allclose(
+            composite["values"],
+            np.asarray([0.2, 0.1, 0.0, 4.8, 3.8, 6.8, 0.0]),
+        )
+        self.assertTrue(composite["contains_continuous"])
+        pv_data = hierarchy["groups"]["continuous"]["subgroups"]["sub"]["pv_data"]
+        self.assertEqual(
+            pv_data[0]["setpoint"],
+            0.02,
         )
 
 

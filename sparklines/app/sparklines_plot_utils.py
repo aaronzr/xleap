@@ -316,6 +316,47 @@ def rolling_avg(data, window_size):
     return mean, std
 
 
+def finite_rolling_avg(data, window_size):
+    """Return finite sample times plus rolling mean/std for archive data."""
+    if not isinstance(data, dict):
+        raise ValueError(
+            "data must be an archive-style dict with 'values' and "
+            "'secondsPastEpoch'"
+        )
+    if 'values' not in data or 'secondsPastEpoch' not in data:
+        raise ValueError("data must contain 'values' and 'secondsPastEpoch'")
+
+    values = np.asarray(data['values'], dtype=float).ravel()
+    sec = np.asarray(data['secondsPastEpoch'], dtype=float).ravel()
+    nsec = np.asarray(data.get('nanoseconds', data.get('nanosecond', 0)),
+                     dtype=float)
+    if nsec.ndim == 0:
+        nsec = np.full(sec.shape, float(nsec))
+    else:
+        nsec = nsec.ravel()
+        if nsec.shape != sec.shape:
+            raise ValueError(
+                "'nanoseconds' must be scalar or match 'secondsPastEpoch' length"
+            )
+    if values.shape != sec.shape:
+        raise ValueError(
+            f"time/value length mismatch: len(t)={len(sec)} len(y)={len(values)}"
+        )
+
+    t = sec + nsec * 1e-9
+    keep = np.isfinite(t) & np.isfinite(values)
+    if not np.any(keep):
+        empty = np.array([], dtype=float)
+        return empty, empty, empty
+
+    finite_data = {
+        'secondsPastEpoch': t[keep],
+        'values': values[keep],
+    }
+    mean, std = rolling_avg(finite_data, window_size)
+    return t[keep], mean, std
+
+
 def plot_on_axis(y, ax, t=None, lock_y=True, label=None, y_ticks=None,
                  pad_frac=0.1, colors=None):
     """

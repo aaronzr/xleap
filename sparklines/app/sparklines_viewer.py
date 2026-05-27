@@ -21,7 +21,11 @@ try:
         plot_percentile_band,
         render_percentile_band_series,
     )
-    from .sparklines_plot_utils import add_tuning_overlay, first_tick_of_day_with_date
+    from .sparklines_plot_utils import (
+        add_tuning_overlay,
+        first_tick_of_day_with_date,
+        finite_rolling_avg,
+    )
 except ImportError:  # pragma: no cover - notebook/script fallback
     from sparklines_hierarchy import _extract_time_and_values, _series_varies_in_window
     from sparklines_plotting import (
@@ -29,13 +33,18 @@ except ImportError:  # pragma: no cover - notebook/script fallback
         plot_percentile_band,
         render_percentile_band_series,
     )
-    from sparklines_plot_utils import add_tuning_overlay, first_tick_of_day_with_date
+    from sparklines_plot_utils import (
+        add_tuning_overlay,
+        first_tick_of_day_with_date,
+        finite_rolling_avg,
+    )
 
 
 class HierarchySparklineViewer:
     """Interactive sparkline viewer with click-to-drill hierarchy navigation."""
 
     MAX_MONITOR_RENDER_POINTS = 1000
+    MEASUREMENT_ROLLING_AVG_WINDOW_SECONDS = 15 * 60
 
     def __init__(
         self,
@@ -1033,8 +1042,24 @@ class HierarchySparklineViewer:
                 t_dt = [dt.datetime.fromtimestamp(ts) for ts in t]
                 original_points = int(y.size)
                 rendered_points = original_points
-                display_y = y * float(item.get("value_scale", 1.0))
-                points = ax.scatter(t_dt, display_y, marker="x", s=14, color=color)
+                is_measurement = bool(item["data"].get("measurement", False))
+                value_scale = float(item.get("value_scale", 1.0))
+                if is_measurement:
+                    avg_t, avg_y, _ = finite_rolling_avg(
+                        item["data"],
+                        self.MEASUREMENT_ROLLING_AVG_WINDOW_SECONDS,
+                    )
+                    avg_t_dt = [dt.datetime.fromtimestamp(ts) for ts in avg_t]
+                    display_y = avg_y * value_scale
+                    points = ax.plot(
+                        avg_t_dt,
+                        display_y,
+                        color=color,
+                        linewidth=1.4,
+                    )[0]
+                else:
+                    display_y = y * value_scale
+                    points = ax.scatter(t_dt, display_y, marker="x", s=14, color=color)
                 ax.tick_params(axis="y", which="both", left=True, labelleft=True)
                 ax.set_ylabel("")
                 legend = ax.legend(
@@ -1076,8 +1101,25 @@ class HierarchySparklineViewer:
                 t_dt = [dt.datetime.fromtimestamp(ts) for ts in t]
                 original_points = int(y.size)
                 rendered_points = original_points
-                display_y = y * float(item.get("value_scale", 1.0))
-                points = ax.scatter(t_dt, display_y, marker="x", s=14, color=color)
+                is_measurement = bool(item["data"].get("measurement", False))
+                is_continuous_composite = bool(
+                    item["data"].get("contains_continuous", False)
+                )
+                value_scale = float(item.get("value_scale", 1.0))
+                if is_measurement:
+                    avg_t, avg_y, _ = finite_rolling_avg(
+                        item["data"],
+                        self.MEASUREMENT_ROLLING_AVG_WINDOW_SECONDS,
+                    )
+                    avg_t_dt = [dt.datetime.fromtimestamp(ts) for ts in avg_t]
+                    display_y = avg_y * value_scale
+                    ax.plot(avg_t_dt, display_y, color=color, linewidth=1.4)
+                elif is_continuous_composite:
+                    display_y = y * value_scale
+                    ax.plot(t_dt, display_y, color=color, linewidth=1.4)
+                else:
+                    display_y = y * value_scale
+                    ax.scatter(t_dt, display_y, marker="x", s=14, color=color)
                 ax.tick_params(axis="y", which="both", left=False, labelleft=False)
                 ylab = ax.set_ylabel(
                     item["label"],
@@ -1096,17 +1138,14 @@ class HierarchySparklineViewer:
             ax.yaxis.grid(True, alpha=0.25)
             if not is_monitor:
                 ax.set_xlim(*self.initial_xlim)
-                deadband = None
-                measurement_setpoint_avg_window_s = None
-                if bool(item["data"].get("measurement", False)):
-                    deadband = item["data"].get("deadband")
-                    measurement_setpoint_avg_window_s = 300
-                add_tuning_overlay(
-                    ax,
-                    hide_points=not self.show_data_points,
-                    event_value_delta=deadband,
-                    setpoint_avg_window_s=measurement_setpoint_avg_window_s,
-                )
+                if not (
+                    bool(item["data"].get("measurement", False))
+                    or bool(item["data"].get("contains_continuous", False))
+                ):
+                    add_tuning_overlay(
+                        ax,
+                        hide_points=not self.show_data_points,
+                    )
             self.last_draw_report["items"].append(
                 {
                     "label": item["label"],

@@ -399,8 +399,11 @@ def _build_composite_from_series(
     node_name: str,
     series_by_name: list[tuple[str, dict]],
     threshold_by_name: dict | None = None,
+    baseline_by_name: dict | None = None,
+    contains_continuous: bool = False,
 ):
     threshold_by_name = threshold_by_name or {}
+    baseline_by_name = baseline_by_name or {}
 
     normalized_series = []
     t0_candidates = []
@@ -416,7 +419,12 @@ def _build_composite_from_series(
         threshold = _normalize_threshold(
             threshold_by_name.get(series_name, 1.0), default=1.0
         )
-        normalized_series.append((series_name, t, values / threshold))
+        baseline = baseline_by_name.get(series_name)
+        if baseline is None:
+            scaled_baseline = None
+        else:
+            scaled_baseline = float(baseline) / threshold
+        normalized_series.append((series_name, t, values / threshold, scaled_baseline))
         t0_candidates.append(float(t[0]))
 
     if not normalized_series:
@@ -427,20 +435,30 @@ def _build_composite_from_series(
     current_values = {}
     changes = {}
 
-    for series_name, t, values in normalized_series:
+    for series_name, t, values, fixed_baseline in normalized_series:
         start_idx = int(np.searchsorted(t, t0, side="right") - 1)
         if start_idx < 0:
             start_idx = 0
 
-        baseline = float(values[start_idx])
+        baseline = (
+            float(fixed_baseline)
+            if fixed_baseline is not None
+            else float(values[start_idx])
+        )
         baseline_values[series_name] = baseline
-        current_values[series_name] = baseline
+        current_values[series_name] = float(values[start_idx])
 
         for ts, value in zip(t[start_idx + 1 :], values[start_idx + 1 :]):
             changes.setdefault(float(ts), []).append((series_name, float(value)))
 
+    initial_deltas = [
+        abs(current_values[name] - baseline_values[name])
+        for name in baseline_values
+    ]
     composite_times = [t0]
-    composite_values = [0.0]
+    composite_values = [
+        sum(initial_deltas) / len(initial_deltas) if initial_deltas else 0.0
+    ]
 
     for ts in sorted(changes):
         for series_name, value in changes[ts]:
@@ -470,6 +488,7 @@ def _build_composite_from_series(
         "values": np.asarray(composite_values, dtype=float),
         "severity": np.zeros_like(seconds, dtype=np.int64),
         "status": np.zeros_like(seconds, dtype=np.int64),
+        "contains_continuous": bool(contains_continuous),
     }
 
 
@@ -757,7 +776,9 @@ def build_composite_hierarchy(
         for subgroup_name, subgroup in group["subgroups"].items():
             pv_series = []
             threshold_map = {}
+            baseline_map = {}
             pv_data = []
+            subgroup_contains_continuous = False
 
             for spec in subgroup["pv_specs"]:
                 pv_name = spec["pv_name"]
@@ -769,17 +790,28 @@ def build_composite_hierarchy(
                 )
                 pv_entry["measurement"] = bool(spec.get("measurement", False))
                 pv_entry["deadband"] = spec.get("deadband")
-                composite_source = (
-                    _compress_measurement_series_for_composite(
-                        pv_entry,
-                        deadband=pv_entry.get("deadband"),
+                if pv_entry["measurement"]:
+                    t, values = _extract_time_and_values(pv_entry)
+                    if values.size == 0:
+                        continue
+                    finite_values = values[np.isfinite(values)]
+                    if finite_values.size == 0:
+                        continue
+                    setpoint = float(np.median(finite_values))
+                    pv_entry["setpoint"] = setpoint
+                    pv_entry["continuous"] = True
+                    subgroup_contains_continuous = True
+                    composite_source = pv_entry
+                    threshold_map[pv_name] = _normalize_threshold(
+                        pv_entry.get("deadband"), default=1.0
                     )
-                    if pv_entry["measurement"]
-                    else pv_entry
-                )
+                    baseline_map[pv_name] = setpoint
+                else:
+                    pv_entry["continuous"] = False
+                    composite_source = pv_entry
+                    threshold_map[pv_name] = spec["threshold"]
                 pv_series.append((pv_name, composite_source))
                 pv_data.append(pv_entry)
-                threshold_map[pv_name] = spec["threshold"]
 
             if not pv_series:
                 continue
@@ -788,6 +820,8 @@ def build_composite_hierarchy(
                 subgroup_name,
                 pv_series,
                 threshold_by_name=threshold_map,
+                baseline_by_name=baseline_map,
+                contains_continuous=subgroup_contains_continuous,
             )
             if subgroup_composite is None:
                 continue
@@ -805,10 +839,17 @@ def build_composite_hierarchy(
         if not subgroup_nodes:
             continue
 
+        continuous_subgroups = {
+            name: 0.0
+            for name, composite in subgroup_series
+            if bool(composite.get("contains_continuous", False))
+        }
         group_composite = _build_composite_from_series(
             group_name,
             subgroup_series,
             threshold_by_name={name: 1.0 for name, _ in subgroup_series},
+            baseline_by_name=continuous_subgroups,
+            contains_continuous=bool(continuous_subgroups),
         )
 
         if group_composite is not None:

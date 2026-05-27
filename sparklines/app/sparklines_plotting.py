@@ -12,9 +12,20 @@ import pandas as pd
 from matplotlib.ticker import FuncFormatter
 
 try:
-    from .sparklines_plot_utils import add_tuning_overlay, first_tick_of_day_with_date
+    from .sparklines_plot_utils import (
+        add_tuning_overlay,
+        first_tick_of_day_with_date,
+        finite_rolling_avg,
+    )
 except ImportError:  # pragma: no cover - notebook/script fallback
-    from sparklines_plot_utils import add_tuning_overlay, first_tick_of_day_with_date
+    from sparklines_plot_utils import (
+        add_tuning_overlay,
+        first_tick_of_day_with_date,
+        finite_rolling_avg,
+    )
+
+
+MEASUREMENT_ROLLING_AVG_WINDOW_SECONDS = 15 * 60
 
 
 def plot_percentile_band(
@@ -359,7 +370,15 @@ def sparklines(
         t_dt = [dt.datetime.fromtimestamp(ts) for ts in t]
 
         color = next(color_cycle)
-        ax.scatter(t_dt, y, marker="x", s=14, color=color, label=data["name"])
+        if bool(data.get("measurement", False)):
+            avg_t, avg_y, _ = finite_rolling_avg(
+                data,
+                MEASUREMENT_ROLLING_AVG_WINDOW_SECONDS,
+            )
+            avg_t_dt = [dt.datetime.fromtimestamp(ts) for ts in avg_t]
+            ax.plot(avg_t_dt, avg_y, color=color, linewidth=1.4, label=data["name"])
+        else:
+            ax.scatter(t_dt, y, marker="x", s=14, color=color, label=data["name"])
         if y_lim_init is not None:
             y_min = min(float(y_lim_init[0]), float(np.min(y)))
             y_max = max(float(y_lim_init[1]), float(np.max(y)))
@@ -381,7 +400,8 @@ def sparklines(
         ax.xaxis.grid(True, alpha=0.25)
         ax.yaxis.grid(True, alpha=0.25)
 
-        add_tuning_overlay(ax, hide_points=hide_points)
+        if not bool(data.get("measurement", False)):
+            add_tuning_overlay(ax, hide_points=hide_points)
 
     for ax in axes[1:]:
         ax.spines["top"].set_visible(False)

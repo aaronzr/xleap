@@ -719,6 +719,53 @@ class HierarchySparklineViewerUiTests(unittest.TestCase):
         finally:
             plt.close(viewer.fig)
 
+    def test_measurement_pv_draws_rolling_average_without_event_markers(self):
+        plt.close("all")
+        hierarchy = _synthetic_hierarchy()
+        subgroup = hierarchy["groups"]["Group A"]["subgroups"]["Subgroup A1"]
+        measurement_data = subgroup["pv_data"][0]
+        measurement_data["measurement"] = True
+        measurement_data["values"][1] = np.nan
+
+        viewer = self.viewer_class(hierarchy, START, END, draw_report_path=None)
+        try:
+            viewer.path = ["Group A", "Subgroup A1"]
+            viewer.draw()
+            viewer.fig.canvas.draw()
+
+            labels = [item["label"] for item in viewer._items_for_path()]
+            measurement_index = labels.index("PV:A:1")
+            measurement_axis = viewer._plot_axes()[measurement_index]
+            self.assertEqual(len(measurement_axis.lines), 1)
+            collection_types = {
+                type(collection).__name__
+                for collection in measurement_axis.collections
+            }
+            self.assertNotIn("PathCollection", collection_types)
+        finally:
+            plt.close(viewer.fig)
+
+    def test_continuous_composite_draws_line_without_event_markers(self):
+        plt.close("all")
+        hierarchy = _synthetic_hierarchy()
+        hierarchy["groups"]["Group A"]["composite"]["contains_continuous"] = True
+
+        viewer = self.viewer_class(hierarchy, START, END, draw_report_path=None)
+        try:
+            viewer.draw()
+            viewer.fig.canvas.draw()
+
+            labels = [item["label"] for item in viewer._items_for_path()]
+            axis = viewer._plot_axes()[labels.index("Group A")]
+            self.assertEqual(len(axis.lines), 1)
+            collection_types = {
+                type(collection).__name__
+                for collection in axis.collections
+            }
+            self.assertNotIn("PathCollection", collection_types)
+        finally:
+            plt.close(viewer.fig)
+
     def test_constant_monitors_collapse_and_hide_numeric_y_axis(self):
         plt.close("all")
         hierarchy = _synthetic_hierarchy_with_monitors()
