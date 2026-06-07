@@ -592,6 +592,18 @@ class HierarchySparklineViewer:
             height_ratios.append(1.0 if varies else 1.0 / 3.0)
         return height_ratios
 
+    def _plot_raw_data_points(self, ax, t_dt, y, value_scale, color):
+        display_y = np.asarray(y, dtype=float) * float(value_scale)
+        return ax.scatter(
+            t_dt,
+            display_y,
+            marker="x",
+            s=14,
+            color=color,
+            alpha=0.55,
+            linewidths=0.8,
+        )
+
     def _item_key(self, item) -> tuple:
         if item.get("kind") == "monitor":
             return ("__monitor__", item["label"])
@@ -1114,6 +1126,8 @@ class HierarchySparklineViewer:
                         color=color,
                         linewidth=1.4,
                     )[0]
+                    if self.show_data_points:
+                        self._plot_raw_data_points(ax, t_dt, y, value_scale, color)
                 else:
                     display_y = y * value_scale
                     points = ax.scatter(t_dt, display_y, marker="x", s=14, color=color)
@@ -1171,9 +1185,13 @@ class HierarchySparklineViewer:
                     avg_t_dt = [dt.datetime.fromtimestamp(ts) for ts in avg_t]
                     display_y = avg_y * value_scale
                     ax.plot(avg_t_dt, display_y, color=color, linewidth=1.4)
+                    if self.show_data_points:
+                        self._plot_raw_data_points(ax, t_dt, y, value_scale, color)
                 elif is_continuous_composite:
                     display_y = y * value_scale
                     ax.plot(t_dt, display_y, color=color, linewidth=1.4)
+                    if self.show_data_points:
+                        self._plot_raw_data_points(ax, t_dt, y, value_scale, color)
                 else:
                     display_y = y * value_scale
                     ax.scatter(t_dt, display_y, marker="x", s=14, color=color)
