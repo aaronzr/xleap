@@ -1,0 +1,28 @@
+GMD:
+  pv_name: EM1K0:GMD:HPS:milliJoulesPerPulse
+  beam_paths:
+    - CU_SXR
+    - SC_SXR
+  value_scale: 1000.0
+  # subsample: false
+XGMD:
+  pv_name: EM2K0:XGMD:HPS:milliJoulesPerPulse
+  beam_paths:
+    - CU_SXR
+    - SC_SXR
+  value_scale: 1000.0
+  # subsample: false
+GDET 241:
+  pv_name: GDET:FEE1:241:ENRC
+  beam_paths:
+    - CU_HXR
+    - SC_HXR
+  value_scale: 1000.0
+  # subsample: false
+GDET 361:
+  pv_name: GDET:FEE1:361:ENRC
+  beam_paths:
+    - CU_HXR
+    - SC_HXR
+  value_scale: 1000.0
+  # subsample: false

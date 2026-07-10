@@ -13,26 +13,15 @@ from typing import NamedTuple
 
 import meme
 
-try:
-    from .xleap_snapshot_store import (
-        DEFAULT_DB_PATH,
-        SnapshotRow,
-        _quote_identifier,
-        clear_snapshot_pvs,
-        connect,
-        replace_moving_undulator_markers,
-        upsert_snapshot_rows,
-    )
-except ImportError:  # pragma: no cover - script fallback
-    from xleap_snapshot_store import (
-        DEFAULT_DB_PATH,
-        SnapshotRow,
-        _quote_identifier,
-        clear_snapshot_pvs,
-        connect,
-        replace_moving_undulator_markers,
-        upsert_snapshot_rows,
-    )
+from sparklines_v2.archive.store import (
+    DEFAULT_DB_PATH,
+    SnapshotRow,
+    _quote_identifier,
+    clear_snapshot_pvs,
+    connect,
+    replace_moving_undulator_markers,
+    upsert_snapshot_rows,
+)
 
 
 GAMMA_PV = "BEND:DMPS:400:BACT"

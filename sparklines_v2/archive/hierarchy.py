@@ -1,0 +1,750 @@
+"""Composite hierarchy construction from grouped PV specifications.
+
+Loads the ``pv_groups.yaml`` structure, fetches every referenced PV from the
+archiver, and folds each subgroup and group down to a single composite
+timeseries suitable for feeding to the sparkline viewer.
+"""
+
+from __future__ import annotations
+
+import datetime as dt
+import time
+from pathlib import Path
+from typing import Iterator
+
+import numpy as np
+import yaml
+
+from sparklines_v2.archive.fetch import (
+    ArchiveRequestError,  # re-export for callers that used to import from hierarchy
+    fetch_archive_batch,
+)
+from sparklines_v2.beamlines import (
+    ARCHIVE_MAX_WORKERS,
+    ARCHIVE_TIMEOUT_SECONDS,
+    ARCHIVER_URL,
+    DEFAULT_MONITOR_PVS_YAML,
+    DEFAULT_PV_GROUPS_YAML,
+)
+
+
+__all__ = [
+    "ArchiveRequestError",
+    "DEFAULT_MONITOR_SPECS",
+    "build_composite_hierarchy",
+    "build_default_composite_hierarchy",
+    "iter_laser_position_measurements",
+    "load_group_specs",
+    "load_pv_groups",
+]
+
+
+def _load_default_monitor_specs(path: Path | None = None) -> dict:
+    specs_path = Path(path) if path is not None else DEFAULT_MONITOR_PVS_YAML
+    with specs_path.open("r", encoding="utf-8") as handle:
+        payload = yaml.safe_load(handle) or {}
+    if not isinstance(payload, dict):
+        raise ValueError(f"Expected a mapping in {specs_path}")
+    monitor_specs = payload.get("monitor_pvs", payload)
+    if not isinstance(monitor_specs, dict):
+        raise ValueError(f"Expected 'monitor_pvs' to be a mapping in {specs_path}")
+    return monitor_specs
+
+
+DEFAULT_MONITOR_SPECS = _load_default_monitor_specs()
+
+
+def load_pv_groups(path: Path | None = None) -> dict:
+    """Load the raw ``pv_groups.yaml`` mapping without further normalization."""
+    groups_path = Path(path) if path is not None else DEFAULT_PV_GROUPS_YAML
+    with groups_path.open("r", encoding="utf-8") as handle:
+        payload = yaml.safe_load(handle) or {}
+    if not isinstance(payload, dict):
+        raise ValueError(f"Expected a mapping in {groups_path}")
+    return payload
+
+
+def iter_laser_position_measurements(
+    groups_path: Path | None = None,
+) -> Iterator[str]:
+    """Yield each ``laser / Position`` PV marked ``measurement: true``."""
+    path = Path(groups_path) if groups_path is not None else DEFAULT_PV_GROUPS_YAML
+    payload = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
+    for group in payload.get("groups", []):
+        if group.get("group_name") != "laser":
+            continue
+        position = group.get("subgroups", {}).get("Position", {})
+        for spec in position.get("pv", []):
+            if spec.get("measurement") is True:
+                yield spec["pv_name"]
+
+
+def load_group_specs(
+    group_name: str = "undulator",
+    *,
+    groups_path: Path | None = None,
+) -> dict[str, list[str]]:
+    """Return ``{subgroup_name: [pv_name, ...]}`` for the named top-level group."""
+    path = Path(groups_path) if groups_path is not None else DEFAULT_PV_GROUPS_YAML
+    with Path(path).open("r", encoding="utf-8") as handle:
+        payload = yaml.safe_load(handle) or {}
+
+    groups = payload.get("groups", []) or []
+    group = next(group for group in groups if group.get("group_name") == group_name)
+
+    specs = {}
+    for subgroup_name, subgroup in (group.get("subgroups") or {}).items():
+        pv_names = []
+        for entry in subgroup.get("pv", []) or []:
+            if isinstance(entry, dict) and entry.get("pv_name"):
+                pv_names.append(str(entry["pv_name"]).strip())
+        if pv_names:
+            specs[str(subgroup_name)] = pv_names
+
+    return specs
+
+
+def _extract_time_and_values(data: dict):
+    sec = np.asarray(data["secondsPastEpoch"], dtype=float)
+    nsec = np.asarray(data.get("nanoseconds", data.get("nanosecond", 0)), dtype=float)
+    if nsec.ndim == 0:
+        t = sec + float(nsec) * 1e-9
+    else:
+        t = sec + nsec * 1e-9
+    y = np.asarray(data["values"], dtype=float)
+    keep = np.isfinite(t) & np.isfinite(y)
+    return t[keep], y[keep]
+
+
+def _series_varies_in_window(t, y, window_start, window_end, change_tol=0.0) -> bool:
+    in_window = (t >= window_start) & (t <= window_end)
+    y_window = y[in_window]
+    if y_window.size < 2:
+        return False
+    return float(np.max(y_window) - np.min(y_window)) > float(change_tol)
+
+
+def _normalize_threshold(value, default=1.0) -> float:
+    if value in (None, 0):
+        return float(default)
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return float(default)
+
+
+def _normalize_bool(value, default=False) -> bool:
+    if value is None:
+        return bool(default)
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        token = value.strip().lower()
+        if token in {"1", "true", "yes", "on"}:
+            return True
+        if token in {"0", "false", "no", "off"}:
+            return False
+    return bool(value)
+
+
+def _normalize_optional_positive_float(value) -> float | None:
+    if value is None:
+        return None
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not np.isfinite(parsed) or parsed <= 0:
+        return None
+    return parsed
+
+
+def _event_times_from_value_changes(t, y, min_delta=None):
+    t_arr = np.asarray(t, dtype=float)
+    y_arr = np.asarray(y, dtype=float)
+    if t_arr.shape != y_arr.shape:
+        raise ValueError(
+            "time/value length mismatch: "
+            f"len(t)={t_arr.size} len(y)={y_arr.size}"
+        )
+    if t_arr.size == 0:
+        return np.array([], dtype=float)
+
+    mask = np.isfinite(t_arr) & np.isfinite(y_arr)
+    t_arr = t_arr[mask]
+    y_arr = y_arr[mask]
+    if t_arr.size == 0:
+        return np.array([], dtype=float)
+
+    order = np.argsort(t_arr, kind="mergesort")
+    t_sorted = t_arr[order]
+    y_sorted = y_arr[order]
+
+    if min_delta is None:
+        return t_sorted
+
+    min_delta = float(min_delta)
+    if not np.isfinite(min_delta) or min_delta <= 0:
+        return t_sorted
+
+    events = []
+    last_setpoint = float(y_sorted[0])
+    for ti, yi in zip(t_sorted[1:], y_sorted[1:]):
+        yi = float(yi)
+        if abs(yi - last_setpoint) >= min_delta:
+            events.append(float(ti))
+            last_setpoint = yi
+    return np.asarray(events, dtype=float)
+
+
+def _detect_tuning_periods(t, timeout=300):
+    t_arr = np.asarray(t, dtype=float)
+    if t_arr.size == 0:
+        return []
+
+    t_arr = np.sort(t_arr[np.isfinite(t_arr)])
+    if t_arr.size == 0:
+        return []
+
+    periods = []
+    t_on = float(t_arr[0])
+    last_event = float(t_arr[0])
+    for ti in t_arr[1:]:
+        ti = float(ti)
+        if ti - last_event <= timeout:
+            last_event = ti
+            continue
+        periods.append((t_on, last_event))
+        t_on = ti
+        last_event = ti
+
+    periods.append((t_on, last_event))
+    return periods
+
+
+def _series_from_time_values(template: dict, t: np.ndarray, values: np.ndarray) -> dict:
+    seconds = np.floor(t).astype(np.int64)
+    nanoseconds = np.rint((t - seconds) * 1e9).astype(np.int64)
+    rollover = nanoseconds == 1000000000
+    seconds[rollover] += 1
+    nanoseconds[rollover] = 0
+
+    out = dict(template)
+    out["secondsPastEpoch"] = seconds
+    out["nanoseconds"] = nanoseconds
+    out["values"] = np.asarray(values, dtype=float)
+    out["severity"] = np.zeros_like(seconds, dtype=np.int64)
+    out["status"] = np.zeros_like(seconds, dtype=np.int64)
+    return out
+
+
+def _compress_measurement_series_for_composite(data: dict, deadband=None, timeout=300):
+    t, values = _extract_time_and_values(data)
+    if t.size == 0:
+        return data
+
+    order = np.argsort(t, kind="mergesort")
+    t = t[order]
+    values = values[order]
+
+    event_times = _event_times_from_value_changes(t, values, min_delta=deadband)
+    periods = _detect_tuning_periods(event_times, timeout=timeout)
+    if not periods:
+        return _series_from_time_values(data, t[:1], values[:1])
+
+    keep_indices = {0}
+    for t_on, t_off in periods:
+        period_mask = (t >= t_on) & (t <= t_off)
+        period_indices = np.flatnonzero(period_mask)
+        if period_indices.size == 0:
+            continue
+        first_idx = int(period_indices[0])
+        last_idx = int(period_indices[-1])
+        period_values = values[period_indices]
+        keep_indices.update(
+            {
+                first_idx,
+                last_idx,
+                int(period_indices[np.argmin(period_values)]),
+                int(period_indices[np.argmax(period_values)]),
+            }
+        )
+
+    keep = np.asarray(sorted(keep_indices), dtype=int)
+    return _series_from_time_values(data, t[keep], values[keep])
+
+
+def _normalize_beam_paths(value) -> tuple[str, ...]:
+    if value is None:
+        return ()
+
+    if isinstance(value, str):
+        raw_entries = value.split(",")
+    elif isinstance(value, (list, tuple, set)):
+        raw_entries = []
+        for entry in value:
+            if isinstance(entry, str):
+                raw_entries.extend(entry.split(","))
+    else:
+        return ()
+
+    normalized = []
+    for entry in raw_entries:
+        token = str(entry).strip().upper()
+        if token and token not in normalized:
+            normalized.append(token)
+    return tuple(normalized)
+
+
+def _normalize_monitor_specs(monitor_specs) -> dict[str, dict]:
+    if monitor_specs is None:
+        return {}
+
+    if isinstance(monitor_specs, dict):
+        entries = monitor_specs.items()
+    elif isinstance(monitor_specs, list):
+        entries = []
+        for item in monitor_specs:
+            if not isinstance(item, dict):
+                continue
+            label = str(item.get("label", "")).strip()
+            if label:
+                entries.append((label, item))
+    else:
+        return {}
+
+    normalized = {}
+    for label, spec in entries:
+        if not isinstance(spec, dict):
+            continue
+
+        pv_name = str(spec.get("pv_name", "")).strip()
+        if not pv_name:
+            continue
+
+        try:
+            value_scale = float(spec.get("value_scale", 1.0))
+        except (TypeError, ValueError):
+            value_scale = 1.0
+
+        subsample = spec.get("subsample", True)
+        if isinstance(subsample, str):
+            subsample = subsample.strip().lower() not in {"0", "false", "no", "off"}
+        else:
+            subsample = bool(subsample)
+
+        normalized[str(label)] = {
+            "pv_name": pv_name,
+            "beam_paths": _normalize_beam_paths(
+                spec.get("Beam_Path", spec.get("beam_paths"))
+            ),
+            "value_scale": value_scale,
+            "subsample": subsample,
+        }
+
+    return normalized
+
+
+def _parse_group_hierarchy(pv_groups_dict: dict) -> dict:
+    groups = pv_groups_dict.get("groups", [])
+    if not isinstance(groups, list):
+        raise ValueError('Expected top-level key "groups" to be a list.')
+
+    parsed = {}
+    for group in groups:
+        if not isinstance(group, dict):
+            continue
+        group_name = str(group.get("group_name", "")).strip()
+        if not group_name:
+            continue
+
+        group_threshold = group.get("threshold", None)
+        group_beam_paths = _normalize_beam_paths(group.get("Beam_Path"))
+        subgroups = group.get("subgroups", {}) or {}
+        subgroup_nodes = {}
+
+        for subgroup_name, subgroup in subgroups.items():
+            if not isinstance(subgroup, dict):
+                continue
+
+            inherited_subgroup_threshold = subgroup.get("threshold", group_threshold)
+            inherited_subgroup_measurement = _normalize_bool(
+                subgroup.get("measurement", False),
+                default=False,
+            )
+            inherited_subgroup_deadband = _normalize_optional_positive_float(
+                subgroup.get("deadband")
+            )
+            subgroup_beam_paths = _normalize_beam_paths(
+                subgroup.get("Beam_Path", group_beam_paths)
+            )
+            pv_specs = []
+            for entry in subgroup.get("pv", []) or []:
+                if isinstance(entry, dict):
+                    pv_name = str(entry.get("pv_name", "")).strip()
+                    threshold = entry.get("threshold", inherited_subgroup_threshold)
+                    measurement = _normalize_bool(
+                        entry.get("measurement", inherited_subgroup_measurement),
+                        default=inherited_subgroup_measurement,
+                    )
+                    deadband = _normalize_optional_positive_float(
+                        entry.get(
+                            "deadband",
+                            inherited_subgroup_deadband,
+                        )
+                    )
+                    beam_paths = _normalize_beam_paths(
+                        entry.get("Beam_Path", subgroup_beam_paths)
+                    )
+                elif isinstance(entry, str):
+                    pv_name = entry.strip()
+                    threshold = inherited_subgroup_threshold
+                    measurement = inherited_subgroup_measurement
+                    deadband = inherited_subgroup_deadband
+                    beam_paths = subgroup_beam_paths
+                else:
+                    continue
+
+                if not pv_name:
+                    continue
+
+                pv_specs.append(
+                    {
+                        "pv_name": pv_name,
+                        "threshold": _normalize_threshold(threshold, default=1.0),
+                        "measurement": measurement,
+                        "deadband": deadband,
+                        "beam_paths": beam_paths,
+                    }
+                )
+
+            if pv_specs:
+                combined_subgroup_beam_paths = list(subgroup_beam_paths)
+                for spec in pv_specs:
+                    for beam_path in spec.get("beam_paths", ()):
+                        if beam_path not in combined_subgroup_beam_paths:
+                            combined_subgroup_beam_paths.append(beam_path)
+                subgroup_nodes[str(subgroup_name)] = {
+                    "threshold": _normalize_threshold(
+                        inherited_subgroup_threshold, default=1.0
+                    ),
+                    "beam_paths": tuple(combined_subgroup_beam_paths),
+                    "pv_specs": pv_specs,
+                }
+
+        if subgroup_nodes:
+            combined_group_beam_paths = list(group_beam_paths)
+            for subgroup in subgroup_nodes.values():
+                for beam_path in subgroup.get("beam_paths", ()):
+                    if beam_path not in combined_group_beam_paths:
+                        combined_group_beam_paths.append(beam_path)
+            parsed[group_name] = {
+                "threshold": _normalize_threshold(group_threshold, default=1.0),
+                "beam_paths": tuple(combined_group_beam_paths),
+                "subgroups": subgroup_nodes,
+            }
+
+    return parsed
+
+
+def _build_composite_from_series(
+    node_name: str,
+    series_by_name: list[tuple[str, dict]],
+    threshold_by_name: dict | None = None,
+    baseline_by_name: dict | None = None,
+    contains_continuous: bool = False,
+):
+    threshold_by_name = threshold_by_name or {}
+    baseline_by_name = baseline_by_name or {}
+
+    normalized_series = []
+    t0_candidates = []
+    for series_name, data in series_by_name:
+        t, values = _extract_time_and_values(data)
+        if t.size == 0:
+            continue
+
+        order = np.argsort(t)
+        t = t[order]
+        values = values[order]
+
+        threshold = _normalize_threshold(
+            threshold_by_name.get(series_name, 1.0), default=1.0
+        )
+        baseline = baseline_by_name.get(series_name)
+        if baseline is None:
+            scaled_baseline = None
+        else:
+            scaled_baseline = float(baseline) / threshold
+        normalized_series.append((series_name, t, values / threshold, scaled_baseline))
+        t0_candidates.append(float(t[0]))
+
+    if not normalized_series:
+        return None
+
+    t0 = max(t0_candidates)
+    baseline_values = {}
+    current_values = {}
+    changes = {}
+
+    for series_name, t, values, fixed_baseline in normalized_series:
+        start_idx = int(np.searchsorted(t, t0, side="right") - 1)
+        if start_idx < 0:
+            start_idx = 0
+
+        baseline = (
+            float(fixed_baseline)
+            if fixed_baseline is not None
+            else float(values[start_idx])
+        )
+        baseline_values[series_name] = baseline
+        current_values[series_name] = float(values[start_idx])
+
+        for ts, value in zip(t[start_idx + 1 :], values[start_idx + 1 :]):
+            changes.setdefault(float(ts), []).append((series_name, float(value)))
+
+    initial_deltas = [
+        abs(current_values[name] - baseline_values[name])
+        for name in baseline_values
+    ]
+    composite_times = [t0]
+    composite_values = [
+        sum(initial_deltas) / len(initial_deltas) if initial_deltas else 0.0
+    ]
+
+    for ts in sorted(changes):
+        for series_name, value in changes[ts]:
+            current_values[series_name] = value
+
+        deltas = [
+            abs(current_values[name] - baseline_values[name])
+            for name in baseline_values
+        ]
+        composite_value = sum(deltas) / len(deltas) if deltas else 0.0
+        if composite_value == composite_values[-1]:
+            continue
+        composite_times.append(ts)
+        composite_values.append(composite_value)
+
+    composite_times = np.asarray(composite_times, dtype=float)
+    seconds = np.floor(composite_times).astype(np.int64)
+    nanoseconds = np.rint((composite_times - seconds) * 1e9).astype(np.int64)
+    rollover = nanoseconds == 1000000000
+    seconds[rollover] += 1
+    nanoseconds[rollover] = 0
+
+    return {
+        "name": node_name,
+        "secondsPastEpoch": seconds,
+        "nanoseconds": nanoseconds,
+        "values": np.asarray(composite_values, dtype=float),
+        "severity": np.zeros_like(seconds, dtype=np.int64),
+        "status": np.zeros_like(seconds, dtype=np.int64),
+        "contains_continuous": bool(contains_continuous),
+    }
+
+
+def build_composite_hierarchy(
+    pv_groups_dict: dict,
+    start: dt.datetime,
+    end: dt.datetime,
+    *,
+    monitor_specs=None,
+    archiver_url=ARCHIVER_URL,
+    archive_timeout_seconds=ARCHIVE_TIMEOUT_SECONDS,
+    archive_max_workers=ARCHIVE_MAX_WORKERS,
+) -> dict:
+    """Fetch every referenced PV and fold it into composite subgroup/group series."""
+    build_started = time.perf_counter()
+    parsed = _parse_group_hierarchy(pv_groups_dict)
+    raw_monitor_specs = (
+        monitor_specs if monitor_specs is not None else DEFAULT_MONITOR_SPECS
+    )
+    monitor_specs = _normalize_monitor_specs(raw_monitor_specs)
+
+    all_pvs = {
+        spec["pv_name"]
+        for group in parsed.values()
+        for subgroup in group["subgroups"].values()
+        for spec in subgroup["pv_specs"]
+    }
+    requested_pvs = all_pvs | {spec["pv_name"] for spec in monitor_specs.values()}
+
+    pv_cache = {}
+    skipped_pvs = {}
+    ordered_pvs = sorted(requested_pvs)
+
+    raw_by_pv, fetch_errors, fetch_timing = fetch_archive_batch(
+        ordered_pvs,
+        start,
+        end,
+        archiver_url=archiver_url,
+        archive_timeout_seconds=archive_timeout_seconds,
+        archive_max_workers=archive_max_workers,
+    )
+    skipped_pvs.update(fetch_errors)
+
+    for pv_name in ordered_pvs:
+        if pv_name in skipped_pvs:
+            continue
+
+        raw = raw_by_pv.get(pv_name)
+        if raw is None:
+            skipped_pvs[pv_name] = "archive returned None"
+            continue
+
+        try:
+            data = dict(raw)
+        except Exception as exc:
+            skipped_pvs[pv_name] = f"invalid archive payload: {exc}"
+            continue
+
+        if "secondsPastEpoch" not in data or "values" not in data:
+            skipped_pvs[pv_name] = "missing required keys"
+            continue
+
+        data["name"] = pv_name
+        pv_cache[pv_name] = data
+
+    hierarchy = {
+        "groups": {},
+        "pv_cache": pv_cache,
+        "skipped_pvs": skipped_pvs,
+        "monitor_pvs": {},
+        "timing": {},
+    }
+
+    for label, spec in monitor_specs.items():
+        pv_name = spec["pv_name"]
+        if pv_name not in pv_cache:
+            continue
+        monitor_entry = dict(pv_cache[pv_name])
+        monitor_entry["name"] = pv_name
+        monitor_entry["label"] = label
+        monitor_entry["beam_paths"] = spec["beam_paths"]
+        monitor_entry["value_scale"] = spec.get("value_scale", 1.0)
+        monitor_entry["subsample"] = spec.get("subsample", True)
+        hierarchy["monitor_pvs"][label] = monitor_entry
+
+    for group_name, group in parsed.items():
+        subgroup_nodes = {}
+        subgroup_series = []
+
+        for subgroup_name, subgroup in group["subgroups"].items():
+            pv_series = []
+            threshold_map = {}
+            baseline_map = {}
+            pv_data = []
+            subgroup_contains_continuous = False
+
+            for spec in subgroup["pv_specs"]:
+                pv_name = spec["pv_name"]
+                if pv_name not in pv_cache:
+                    continue
+                pv_entry = dict(pv_cache[pv_name])
+                pv_entry["beam_paths"] = spec.get(
+                    "beam_paths", subgroup.get("beam_paths", ())
+                )
+                pv_entry["measurement"] = bool(spec.get("measurement", False))
+                pv_entry["deadband"] = spec.get("deadband")
+                if pv_entry["measurement"]:
+                    t, values = _extract_time_and_values(pv_entry)
+                    if values.size == 0:
+                        continue
+                    finite_values = values[np.isfinite(values)]
+                    if finite_values.size == 0:
+                        continue
+                    setpoint = float(np.median(finite_values))
+                    pv_entry["setpoint"] = setpoint
+                    pv_entry["continuous"] = True
+                    subgroup_contains_continuous = True
+                    composite_source = pv_entry
+                    threshold_map[pv_name] = _normalize_threshold(
+                        pv_entry.get("deadband"), default=1.0
+                    )
+                    baseline_map[pv_name] = setpoint
+                else:
+                    pv_entry["continuous"] = False
+                    composite_source = pv_entry
+                    threshold_map[pv_name] = spec["threshold"]
+                pv_series.append((pv_name, composite_source))
+                pv_data.append(pv_entry)
+
+            if not pv_series:
+                continue
+
+            subgroup_composite = _build_composite_from_series(
+                subgroup_name,
+                pv_series,
+                threshold_by_name=threshold_map,
+                baseline_by_name=baseline_map,
+                contains_continuous=subgroup_contains_continuous,
+            )
+            if subgroup_composite is None:
+                continue
+
+            subgroup_composite["beam_paths"] = subgroup.get("beam_paths", ())
+            subgroup_nodes[subgroup_name] = {
+                "threshold": subgroup["threshold"],
+                "beam_paths": subgroup.get("beam_paths", ()),
+                "pv_specs": subgroup["pv_specs"],
+                "pv_data": pv_data,
+                "composite": subgroup_composite,
+            }
+            subgroup_series.append((subgroup_name, subgroup_composite))
+
+        if not subgroup_nodes:
+            continue
+
+        continuous_subgroups = {
+            name: 0.0
+            for name, composite in subgroup_series
+            if bool(composite.get("contains_continuous", False))
+        }
+        group_composite = _build_composite_from_series(
+            group_name,
+            subgroup_series,
+            threshold_by_name={name: 1.0 for name, _ in subgroup_series},
+            baseline_by_name=continuous_subgroups,
+            contains_continuous=bool(continuous_subgroups),
+        )
+
+        if group_composite is not None:
+            group_composite["beam_paths"] = group.get("beam_paths", ())
+
+        hierarchy["groups"][group_name] = {
+            "threshold": group["threshold"],
+            "beam_paths": group.get("beam_paths", ()),
+            "subgroups": subgroup_nodes,
+            "composite": group_composite,
+        }
+
+    hierarchy["timing"] = {
+        **fetch_timing,
+        "build_wall_seconds": time.perf_counter() - build_started,
+    }
+
+    return hierarchy
+
+
+def build_default_composite_hierarchy(
+    start: dt.datetime,
+    end: dt.datetime,
+    *,
+    pv_groups_path: Path | None = None,
+    monitor_specs=None,
+    archiver_url=ARCHIVER_URL,
+    archive_timeout_seconds=ARCHIVE_TIMEOUT_SECONDS,
+    archive_max_workers=ARCHIVE_MAX_WORKERS,
+) -> dict:
+    """Build the hierarchy using the packaged YAML defaults."""
+    pv_groups_dict = load_pv_groups(pv_groups_path)
+    return build_composite_hierarchy(
+        pv_groups_dict,
+        start,
+        end,
+        monitor_specs=monitor_specs,
+        archiver_url=archiver_url,
+        archive_timeout_seconds=archive_timeout_seconds,
+        archive_max_workers=archive_max_workers,
+    )
